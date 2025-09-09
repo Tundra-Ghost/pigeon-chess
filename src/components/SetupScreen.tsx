@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { MODIFIERS } from '../modifiers/data';
 // Auth opens as a modal from parent
 import './SetupScreen.css';
+import '../styles/medieval.css';
+import { useNavigate } from 'react-router-dom';
 
 export interface SetupData {
   whiteName: string;
@@ -10,6 +12,7 @@ export interface SetupData {
 }
 
 export default function SetupScreen({ onStart, onOpenSettings }: { onStart: (data: SetupData) => void; onOpenSettings?: () => void }) {
+  const navigate = useNavigate();
   const [whiteName, setWhiteName] = useState('White');
   const [blackName, setBlackName] = useState('Black');
   const [selected, setSelected] = useState<string[]>([]);
@@ -24,12 +27,13 @@ export default function SetupScreen({ onStart, onOpenSettings }: { onStart: (dat
 
   return (
     <div className="setup-wrap">
-      <div className="setup-card">
+      <div className="setup-card medieval-card">
         <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', gap:8}}>
-          <h2 className="text-2xl font-bold">Pigeon Chess — Setup</h2>
+          <h2 className="text-2xl font-bold medieval-title">Pigeon Chess — Setup</h2>
           <div style={{display:'flex', gap:8}}>
-            <button onClick={() => document.dispatchEvent(new CustomEvent('open-auth'))}>Account</button>
-            {onOpenSettings && <button onClick={onOpenSettings}>Settings</button>}
+            <button className="btn-medieval" onClick={() => document.dispatchEvent(new CustomEvent('open-auth'))}>Account</button>
+            {onOpenSettings && <button className="btn-medieval" onClick={onOpenSettings}>Settings</button>}
+            <button className="btn-medieval" onClick={() => navigate('/')}>Back</button>
           </div>
         </div>
         <div className="row">
@@ -59,9 +63,10 @@ export default function SetupScreen({ onStart, onOpenSettings }: { onStart: (dat
         </div>
 
         <div style={{display:'grid', gap:8}}>
-          <button className="start" onClick={start}>
+          <button className="start btn-medieval" onClick={start}>
             Play
           </button>
+          <small style={{opacity:.8}}>Tip: Click a piece to see legal moves (dots). Click again to deselect. You can adjust sounds and hints in Settings.</small>
         </div>
         
       </div>

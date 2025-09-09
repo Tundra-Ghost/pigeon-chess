@@ -163,7 +163,7 @@ const io = new IOServer(httpServer, {
   cors: { origin: CORS_ORIGIN, credentials: true },
 });
 
-const rooms = new Map(); // roomId -> { players: Map<socketId,{color,user}>, moves: [], turn, board, enPassantTarget, ply, hostId, started, halfmoveClock, repetition }
+const rooms = new Map(); // roomId -> { players: Map<socketId,{color,user}>, moves: [], turn, board, enPassantTarget, ply, hostId, started, halfmoveClock, repetition, opts }
 
 io.on('connection', (socket) => {
   // Attempt to extract auth user from cookie JWT
@@ -183,7 +183,7 @@ io.on('connection', (socket) => {
     } catch {}
     let room = rooms.get(roomId);
     if (!room) {
-      room = { players: new Map(), moves: [], turn: 'w', board: initialBoard(), enPassantTarget: null, ply: 0, hostId: socket.id, started: false };
+      room = { players: new Map(), moves: [], turn: 'w', board: initialBoard(), enPassantTarget: null, ply: 0, hostId: socket.id, started: false, opts: { allowSpectators: true } };
       rooms.set(roomId, room);
     }
     if (room.started) { socket.emit('join_error', { reason: 'game_already_started' }); return; }
@@ -193,14 +193,14 @@ io.on('connection', (socket) => {
     room.players.set(socket.id, { color, user: user || authUser || { displayName: authUser?.displayName } });
     socket.emit('you', { color });
     socket.emit('host_ok', { roomId });
-    io.to(roomId).emit('room_update', { players: [...room.players.values()].map((p) => ({ color: p.color, user: p.user })), hostId: room.hostId, ready: room.ready || {}, moves: room.moves });
+    io.to(roomId).emit('room_update', { players: [...room.players.entries()].map(([id,p]) => ({ socketId: id, color: p.color, user: p.user })), hostId: room.hostId, ready: room.ready || {}, opts: room.opts, moves: room.moves });
   });
 
   socket.on('join_room', ({ roomId, user }) => {
     const match = db.prepare('SELECT code FROM matches WHERE code = ?').get(roomId);
     if (!match) { socket.emit('join_error', { reason: 'code_not_found' }); return; }
     let room = rooms.get(roomId);
-    if (!room) { room = { players: new Map(), moves: [], turn: 'w', board: initialBoard(), enPassantTarget: null, ply: 0, hostId: null, started: false, halfmoveClock: 0, repetition: {} }; rooms.set(roomId, room); }
+    if (!room) { room = { players: new Map(), moves: [], turn: 'w', board: initialBoard(), enPassantTarget: null, ply: 0, hostId: null, started: false, halfmoveClock: 0, repetition: {}, opts: { allowSpectators: true } }; rooms.set(roomId, room); }
     // rehydrate from DB
     const pastMoves = db.prepare('SELECT * FROM moves WHERE match_code = ? ORDER BY ply ASC').all(roomId);
     for (const m of pastMoves) {
@@ -217,8 +217,13 @@ io.on('connection', (socket) => {
     }
     if (room.started) { socket.emit('join_error', { reason: 'game_already_started' }); return; }
     const assigned = [...room.players.values()].map(p => p.color).filter(c => c === 'w' || c === 'b');
-    if (assigned.includes('w') && assigned.includes('b')) { socket.emit('join_error', { reason: 'room_full' }); return; }
-    const color = assigned.includes('w') ? 'b' : 'w';
+    let color;
+    if (assigned.includes('w') && assigned.includes('b')) {
+      if (room.opts?.allowSpectators) color = 'spec';
+      else { socket.emit('join_error', { reason: 'room_full' }); return; }
+    } else {
+      color = assigned.includes('w') ? 'b' : 'w';
+    }
     socket.join(roomId);
     room.players.set(socket.id, { color, user: user || authUser || { displayName: authUser?.displayName } });
     socket.emit('you', { color });
@@ -226,7 +231,7 @@ io.on('connection', (socket) => {
     try { db.prepare('UPDATE matches SET guest_user_id = COALESCE(guest_user_id, ?) WHERE code = ?')
       .run(socket.data.user?.id || null, roomId); } catch {}
     io.to(roomId).emit('player_joined', { user, color });
-    io.to(roomId).emit('room_update', { players: [...room.players.values()].map((p) => ({ color: p.color, user: p.user })), hostId: room.hostId, ready: room.ready || {}, moves: room.moves });
+    io.to(roomId).emit('room_update', { players: [...room.players.entries()].map(([id,p]) => ({ socketId: id, color: p.color, user: p.user })), hostId: room.hostId, ready: room.ready || {}, opts: room.opts, moves: room.moves });
   });
 
   socket.on('start_game', ({ roomId }) => {
@@ -245,7 +250,14 @@ io.on('connection', (socket) => {
     const room = rooms.get(roomId); if (!room) return;
     room.ready = room.ready || {};
     room.ready[color] = !!ready;
-    io.to(roomId).emit('room_update', { players: [...room.players.values()].map((p) => ({ color: p.color, user: p.user })), hostId: room.hostId, ready: room.ready, moves: room.moves });
+    io.to(roomId).emit('room_update', { players: [...room.players.entries()].map(([id,p]) => ({ socketId: id, color: p.color, user: p.user })), hostId: room.hostId, ready: room.ready, opts: room.opts, moves: room.moves });
+  });
+
+  socket.on('set_room_opts', ({ roomId, opts }) => {
+    const room = rooms.get(roomId); if (!room) return;
+    if (room.hostId && socket.id !== room.hostId) { socket.emit('error_msg', { reason: 'not_host' }); return; }
+    room.opts = { ...room.opts, ...opts };
+    io.to(roomId).emit('room_update', { players: [...room.players.entries()].map(([id,p]) => ({ socketId: id, color: p.color, user: p.user })), hostId: room.hostId, ready: room.ready || {}, opts: room.opts, moves: room.moves });
   });
 
   socket.on('move', ({ roomId, move }) => {

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import '../styles/medieval.css';
 import { useParams } from 'react-router-dom';
 
 type MoveRow = { ply: number; color: 'w'|'b'; san: string; created_at: string };
@@ -21,15 +22,14 @@ export default function MatchDetail() {
   if (error) return <div style={{color:'salmon'}}>{error}</div>;
 
   return (
-    <div style={{maxWidth:900, margin:'0 auto', padding:'16px'}}>
-      <h2>Match {code}</h2>
+    <div className="medieval-bg medieval-panel" style={{width:'clamp(900px, 90vw, 1280px)', margin:'0 auto', padding:'clamp(16px,2.2vw,28px)', minHeight:'calc(100vh - 24px)'}}>
+      <h2 className="text-2xl font-extrabold medieval-title">Match {code}</h2>
       <ol>
         {moves.map((m,i)=> (
           <li key={i}>{m.color==='w'?'White':'Black'}: {m.san} <span style={{opacity:0.7}}>{new Date(m.created_at).toLocaleTimeString()}</span></li>
         ))}
       </ol>
-      <a href="#/history">Back to History</a>
+      <a className="btn-medieval" href="#/history">Back to History</a>
     </div>
   );
 }
-

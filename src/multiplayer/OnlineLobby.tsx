@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
+import '../styles/medieval.css';
 import { io, Socket } from 'socket.io-client';
 import { getServerUrl, me } from '../api';
 import { showToast } from '../ui/Toaster';
@@ -13,6 +14,7 @@ export default function OnlineLobby({ onBack, onStartMatch }: { onBack?: () => v
   const [players, setPlayers] = useState<Player[]>([]);
   const [hostId, setHostId] = useState<string | null>(null);
   const [readyMap, setReadyMap] = useState<Record<'w'|'b', boolean>>({ w: false, b: false } as any);
+  const [allowSpecs, setAllowSpecs] = useState(true);
   const [userName, setUserName] = useState('Guest');
   const [messages, setMessages] = useState<Array<{ type: 'info'|'success'|'error', text: string }>>([]);
   const sockRef = useRef<Socket | null>(null);
@@ -42,7 +44,7 @@ export default function OnlineLobby({ onBack, onStartMatch }: { onBack?: () => v
     socket.on('join_ok', ({ roomId, color }) => { push('success', `Joined ${roomId} as ${color==='w'?'White':'Black'}`); setConnected(true); });
     socket.on('join_error', ({ reason }) => push('error', reason==='code_not_found'?'Invite code not found': reason==='room_full'?'Room is full': reason==='game_already_started'?'Game already started':'Join failed'));
     socket.on('player_joined', ({ user, color }) => push('info', `${user?.displayName || 'Player'} joined as ${color==='w'?'White':'Black'}`));
-    socket.on('room_update', ({ players, hostId, ready }) => { setPlayers(players); setHostId(hostId || null); setReadyMap(ready || {} as any); });
+    socket.on('room_update', ({ players, hostId, ready, opts }) => { setPlayers(players); setHostId(hostId || null); setReadyMap(ready || {} as any); setAllowSpecs(!!(opts?.allowSpectators ?? true)); });
     socket.on('error_msg', ({ reason }) => push('error', reason==='need_two_players'?'Need two players': reason==='players_not_ready'?'Both players must be ready':'Action not allowed'));
     socket.on('game_started', ({ roomId }) => {
       const s = sockRef.current; s?.disconnect(); sockRef.current = null;
@@ -67,6 +69,7 @@ export default function OnlineLobby({ onBack, onStartMatch }: { onBack?: () => v
     s.emit('start_game', { roomId });
   }
   function setReady(state: boolean){ const s=sockRef.current; if(!s) return; const color = players.find(p=>!['spec'].includes(p.color) && (p.user?.displayName===userName))?.color || ('?' as any); if(color==='?' ) return; s.emit('set_ready', { roomId, color, ready: state }); }
+  function updateOpts(field: string, value: any){ const s=sockRef.current; if(!s) return; s.emit('set_room_opts', { roomId, opts: { [field]: value } }); }
   function genCode() {
     const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     let code = '';
@@ -82,38 +85,45 @@ export default function OnlineLobby({ onBack, onStartMatch }: { onBack?: () => v
 
   const white = players.find(p=>p.color==='w')?.user?.displayName || 'White';
   const black = players.find(p=>p.color==='b')?.user?.displayName || 'Black';
+  const spectators = players.filter(p=>p.color==='spec').map(p=>p.user?.displayName || 'Spectator');
   const ready = players.some(p=>p.color==='w') && players.some(p=>p.color==='b');
 
   return (
-    <div className="container mx-auto p-5 max-w-4xl">
-      <h2 className="text-2xl font-extrabold mb-2">Online Lobby</h2>
+    <div className="medieval-bg medieval-panel" style={{width:'clamp(900px, 85vw, 1280px)', margin:'0 auto', padding:'clamp(16px,2.2vw,28px)', minHeight:'calc(100vh - 24px)'}}>
+      <h2 className="text-2xl font-extrabold mb-2 medieval-title">Online Lobby</h2>
       <div className="flex flex-wrap items-center gap-2">
-        <input className="px-3 py-2 rounded-md border border-stone-600 bg-stone-900 text-white" placeholder="Your name" value={userName} onChange={e=>setUserName(e.target.value)} />
-        <input className="px-3 py-2 rounded-md border border-stone-600 bg-stone-900 text-white" placeholder="Invite code" value={roomId} onChange={e=>setRoomId(e.target.value)} />
-        <button className="px-3 py-2 font-bold rounded-lg bg-amber-400 text-stone-900 border-4 border-stone-700" onClick={genCode}>Generate</button>
-        <button className="px-3 py-2 font-bold rounded-lg bg-amber-400 text-stone-900 border-4 border-stone-700" onClick={copyCode}>Copy Code</button>
-        <button className="px-3 py-2 font-bold rounded-lg bg-amber-400 text-stone-900 border-4 border-stone-700" onClick={copyInviteLink}>Copy Invite Link</button>
-        <button className="px-3 py-2 font-bold rounded-lg bg-green-400 text-stone-900 border-4 border-stone-700" onClick={host}>Host</button>
-        <button className="px-3 py-2 font-bold rounded-lg bg-blue-400 text-stone-900 border-4 border-stone-700" onClick={join}>Join</button>
-        {onBack && <button className="px-3 py-2 font-bold rounded-lg bg-stone-300 text-stone-900 border-4 border-stone-700" onClick={onBack}>Back</button>}
+        <input className="medieval-input" placeholder="Your name" value={userName} onChange={e=>setUserName(e.target.value)} />
+        <input className="medieval-input" placeholder="Invite code" value={roomId} onChange={e=>setRoomId(e.target.value)} />
+        <button className="btn-medieval" onClick={genCode}>Generate</button>
+        <button className="btn-medieval" onClick={copyCode}>Copy Code</button>
+        <button className="btn-medieval" onClick={copyInviteLink}>Copy Invite Link</button>
+        <button className="btn-medieval" onClick={host}>Host</button>
+        <button className="btn-medieval" onClick={join}>Join</button>
+        {onBack && <button className="btn-medieval" onClick={onBack}>Back</button>}
       </div>
-      <div style={{marginTop:10, display:'grid', gap:8}}>
-        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+      <div className="mt-3 grid gap-3">
+        <div className="flex justify-between items-center">
           <div><b>Lobby Code:</b> {roomId || '—'}</div>
           <div><b>Host:</b> {hostId? (players.find((p:any)=>p.socketId===hostId)?.user?.displayName || white) : '—'}</div>
         </div>
-        <div style={{display:'grid', gap:8}}>
-          <div style={{display:'flex', alignItems:'center', gap:8}}>
-            <span style={{fontSize:20}}>♔</span>
-            <div style={{flex:1, background:'#222', padding:'8px 10px', borderRadius:8}}>{white}</div>
-            <div>{readyMap['w']?'Ready':'In Lobby'}</div>
+        <div className="grid gap-2">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">♔</span>
+            <div className="flex-1 bg-stone-900 border border-stone-700 rounded-md px-3 py-2">{white}</div>
+            <div className="min-w-[90px] text-center {readyMap['w'] ? 'text-lime-300' : ''}">{readyMap['w']?'Ready':'In Lobby'}</div>
           </div>
-          <div style={{display:'flex', alignItems:'center', gap:8}}>
-            <span style={{fontSize:20}}>♚</span>
-            <div style={{flex:1, background:'#222', padding:'8px 10px', borderRadius:8}}>{black}</div>
-            <div>{readyMap['b']?'Ready':'In Lobby'}</div>
+          <div className="flex items-center gap-2">
+            <span className="text-xl">♚</span>
+            <div className="flex-1 bg-stone-900 border border-stone-700 rounded-md px-3 py-2">{black}</div>
+            <div className="min-w-[90px] text-center {readyMap['b'] ? 'text-lime-300' : ''}">{readyMap['b']?'Ready':'In Lobby'}</div>
           </div>
         </div>
+        {allowSpecs && (
+          <div className="bg-stone-900 border border-stone-700 rounded-md px-3 py-2">
+            <div className="opacity-80 mb-1">Spectators ({spectators.length})</div>
+            <div className="flex flex-wrap gap-2 text-sm">{spectators.length? spectators.map((n,i)=>(<span key={i} className="px-2 py-1 bg-stone-800 rounded">{n}</span>)) : <span className="opacity-60">None</span>}</div>
+          </div>
+        )}
       </div>
       <div style={{marginTop:10}}>
         {messages.map((m,i)=>(
@@ -126,6 +136,11 @@ export default function OnlineLobby({ onBack, onStartMatch }: { onBack?: () => v
         <button className="px-3 py-2 font-bold rounded-lg bg-emerald-500 text-white border-4 border-stone-700 ml-2 disabled:opacity-50" onClick={startGame} disabled={!connected || !ready || !hostMode || !(readyMap['w']&&readyMap['b'])}>Start Game</button>
         {!hostMode && connected && <span className="ml-2 opacity-80">Waiting for host to start…</span>}
       </div>
+      {hostMode && (
+        <div className="mt-3 flex items-center gap-2">
+          <label className="flex items-center gap-2"><input type="checkbox" checked={allowSpecs} onChange={e=>{ setAllowSpecs(e.target.checked); updateOpts('allowSpectators', e.target.checked); }} /> Allow spectators</label>
+        </div>
+      )}
     </div>
   );
 }

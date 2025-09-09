@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { me, logout, type User } from '../api';
+import '../styles/medieval.css';
 
 export default function ProfilePage({ onBack }: { onBack: () => void }) {
   const [user, setUser] = useState<User | null>(null);
@@ -11,8 +12,8 @@ export default function ProfilePage({ onBack }: { onBack: () => void }) {
   }, []);
   async function doLogout() { await logout(); setUser(null); }
   return (
-    <div>
-      <h2>Profile</h2>
+    <div className="medieval-bg medieval-panel" style={{width:'clamp(900px, 85vw, 1280px)', margin:'0 auto', padding:'clamp(16px,2.2vw,28px)', minHeight:'calc(100vh - 24px)'}}>
+      <h2 className="text-2xl font-extrabold medieval-title">Profile</h2>
       {user ? (
         <div style={{display:'grid', gap:8}}>
           <div><b>Name:</b> {user.displayName}</div>
@@ -25,14 +26,14 @@ export default function ProfilePage({ onBack }: { onBack: () => void }) {
             </ul>
           </div>
           <div style={{display:'flex', gap:8}}>
-            <button onClick={onBack}>Back</button>
-            <button onClick={doLogout}>Logout</button>
+            <button className="btn-medieval" onClick={onBack}>Back</button>
+            <button className="btn-medieval" onClick={doLogout}>Logout</button>
           </div>
         </div>
       ) : (
         <div>
           <div>Not signed in.</div>
-          <button onClick={onBack}>Back</button>
+          <button className="btn-medieval" onClick={onBack}>Back</button>
         </div>
       )}
     </div>

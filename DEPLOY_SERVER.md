@@ -34,3 +34,13 @@ If using Fly.io/Heroku, set the same envs and the start command accordingly.
 
 In the app, open the Account modal. Set the server URL to your deployed URL and click “Test”. When it says “Server reachable”, you’re good to register/login and play online.
 
+## Docker (local)
+
+Build and run:
+
+```bash
+cd server
+docker build -t pigeon-chess-server .
+docker run --rm -p 8787:8787 -e JWT_SECRET=dev-secret -e CORS_ORIGINS=http://localhost:5173 pigeon-chess-server
+```
+

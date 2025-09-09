@@ -13,6 +13,8 @@ import MenuScreen from './components/MenuScreen';
 import MatchHistory from './history/MatchHistory';
 import MatchDetail from './history/MatchDetail';
 import Toaster from './ui/Toaster';
+import { SettingsProvider } from './contexts/SettingsContext';
+import { UiProvider } from './contexts/UiContext';
 
 function App() {
   const [view] = useState<'menu'|'setup'|'local'|'onlineLobby'|'onlineMatch'|'profile'>('menu');
@@ -46,6 +48,8 @@ function App() {
   const navigate = useNavigate();
 
   return (
+    <SettingsProvider>
+    <UiProvider>
     <div>
       <Routes>
         <Route path="/" element={
@@ -92,6 +96,8 @@ function App() {
       </Routes>
       <Toaster />
     </div>
+    </UiProvider>
+    </SettingsProvider>
   );
 }
 

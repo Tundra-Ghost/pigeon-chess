@@ -4,6 +4,7 @@ import ChessBoard from '../components/ChessBoard';
 import type { Move } from '../chess/types';
 import { getServerUrl } from '../api';
 import ResultModal from '../components/ResultModal';
+import '../styles/medieval.css';
 
 export default function OnlineMatch({ roomId, userName, onExit }: { roomId: string; userName: string; onExit?: () => void }) {
   const [myColor, setMyColor] = useState<'w'|'b'|'spec'|'?'>('?');
@@ -40,7 +41,12 @@ export default function OnlineMatch({ roomId, userName, onExit }: { roomId: stri
       <h2>Online Match</h2>
       <div style={{marginTop:8}}>You are: <b>{userName}</b> ({myColor})</div>
       <div style={{marginTop:16, display:'grid', gridTemplateColumns:'1fr auto', gap:16}}>
-        <div style={{display:'grid', placeItems:'center'}}>
+        <div style={{display:'grid', placeItems:'center', position:'relative'}}>
+          {myColor==='spec' && (
+            <div style={{position:'absolute', inset:0, display:'grid', placeItems:'center', zIndex:5, pointerEvents:'none'}}>
+              <div className="medieval-card" style={{padding:'10px 14px', color:'#f5e6c8', borderRadius:10}}>Spectator Mode</div>
+            </div>
+          )}
           <ChessBoard players={players} selectedModifiers={[]} onExit={onExit} onMove={onLocalMove} externalMove={externalMove} disabled={myColor==='?' || myColor==='spec'} lockColor={myColor==='w'||myColor==='b'? myColor : undefined as any} />
         </div>
         <div style={{textAlign:'left'}}>

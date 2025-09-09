@@ -1,0 +1,26 @@
+.medieval-card { background: linear-gradient(180deg, rgba(67,51,37,0.7), rgba(34,24,18,0.7)); border: 2px solid #3a2a1f; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.4), inset 0 0 0 2px #e3d3b0; }
+.btn-medieval { background: linear-gradient(#c09a6a,#9b7448); color:#1d130d; border: 4px solid #3a2a1f; border-radius: 12px; padding: 10px 16px; box-shadow: 0 6px 0 #3a2a1f, inset 0 0 0 1px #e8d7b5; cursor: pointer; font-weight: 800; }
+.btn-medieval:hover { filter: brightness(1.05); transform: translateY(-1px); }
+.btn-medieval:active { transform: translateY(2px); box-shadow: 0 4px 0 #3a2a1f; }
+.medieval-input { background:#15110d; color:#f3e7cf; border:1px solid #4a3b2c; border-radius:8px; padding:8px 10px; }
+.medieval-label { font-weight:700; color:#e9d7b6; }
+.medieval-panel { border: 6px solid #2b2016; border-radius: 16px; background:
+  linear-gradient(180deg, #3c2b1e 0%, #2b2016 100%),
+  radial-gradient(200% 100% at 50% 0%, rgba(255,255,255,0.06), rgba(0,0,0,0.08));
+  box-shadow: inset 0 0 0 2px #5a4633, 0 20px 60px rgba(0,0,0,0.45);
+}
+.medieval-title { font-family: Georgia, 'Garamond', 'Times New Roman', serif; color:#f1e0b7; text-shadow: 0 4px 0 #2b2016, 0 10px 24px rgba(0,0,0,0.6); }
+.medieval-bg { background: radial-gradient(100% 100% at 50% 0%, #2f3e46 0%, #1b262c 70%, #0f1418 100%); }
+
+/* Subtle noise overlay (pure CSS) */
+.noise-overlay { position: absolute; inset: 0; pointer-events: none; opacity: 0.08; mix-blend-mode: overlay;
+  background-image:
+    radial-gradient(1px 1px at 10% 20%, rgba(255,255,255,0.8) 0, rgba(255,255,255,0) 60%),
+    radial-gradient(1px 1px at 80% 0%, rgba(0,0,0,0.6) 0, rgba(0,0,0,0) 60%),
+    radial-gradient(1px 1px at 50% 60%, rgba(255,255,255,0.7) 0, rgba(255,255,255,0) 60%),
+    radial-gradient(1px 1px at 20% 80%, rgba(0,0,0,0.6) 0, rgba(0,0,0,0) 60%);
+  background-size: 200px 200px, 180px 180px, 220px 220px, 200px 200px;
+}
+
+/* Font unification for medieval screens */
+.medieval-bg, .medieval-panel, .medieval-title, .btn-medieval, .medieval-input, .menu-inner { font-family: Georgia, 'Garamond', 'Times New Roman', serif; }

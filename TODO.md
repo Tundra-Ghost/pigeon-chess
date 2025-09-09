@@ -43,12 +43,13 @@ UI/UX
 - [x] About modal
 - [x] Result modal (game over)
 - [x] Add PLAY_GUIDE.md with how-to-play instructions
-- [ ] Styled Toast notifications (replace simple message list)
-- [ ] Tailwind polish for Setup/Lobby pages
+- [x] Styled Toast notifications (replace message list)
+- [x] Tailwind polish for Setup/Lobby pages
+- [x] Spectator list and host toggle in Lobby
 
 Deployment
 - [x] Frontend Pages build to `docs/` with base `/pigeon-chess/`
-- [ ] Server deploy guide + config
+- [x] Server deploy guide + Dockerfile
 
 Networking
 - [x] Limit socket connect attempts (single attempt)
