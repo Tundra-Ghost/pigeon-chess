@@ -10,6 +10,9 @@ import React, { useEffect, useState } from 'react';
 import { Routes, Route, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { playMenuBgm, playGameBgm, setSoundOptions } from './sound';
 import MenuScreen from './components/MenuScreen';
+import MatchHistory from './history/MatchHistory';
+import MatchDetail from './history/MatchDetail';
+import Toaster from './ui/Toaster';
 
 function App() {
   const [view] = useState<'menu'|'setup'|'local'|'onlineLobby'|'onlineMatch'|'profile'>('menu');
@@ -84,7 +87,10 @@ function App() {
         <Route path="/online/match/:code" element={<OnlineMatchRoute />} />
 
         <Route path="/profile" element={<ProfilePage onBack={() => navigate('/')} />} />
+        <Route path="/history" element={<MatchHistory />} />
+        <Route path="/history/:code" element={<MatchDetail />} />
       </Routes>
+      <Toaster />
     </div>
   );
 }

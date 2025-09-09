@@ -14,7 +14,7 @@ export default function OnlineMatch({ roomId, userName, onExit }: { roomId: stri
   const [over, setOver] = useState<{winner: 'w'|'b'|null, drawReason: string|null}|null>(null);
 
   useEffect(() => {
-    const socket = io(getServerUrl(), { withCredentials: true });
+    const socket = io(getServerUrl(), { withCredentials: true, reconnection: false, reconnectionAttempts: 1, timeout: 6000, transports: ['websocket'] });
     sockRef.current = socket;
     socket.on('connect', () => socket.emit('join_room', { roomId, user: { displayName: userName } }));
     socket.on('you', ({ color }) => setMyColor(color));

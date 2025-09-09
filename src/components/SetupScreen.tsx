@@ -35,11 +35,11 @@ export default function SetupScreen({ onStart, onOpenSettings }: { onStart: (dat
         <div className="row">
           <label>
             <span className="font-semibold">White Name</span>
-            <input className="mt-1" value={whiteName} onChange={(e) => setWhiteName(e.target.value)} placeholder="White player" />
+            <input className="mt-1 px-3 py-2 rounded-md border border-stone-600 bg-stone-900 text-white" value={whiteName} onChange={(e) => setWhiteName(e.target.value)} placeholder="White player" />
           </label>
           <label>
             <span className="font-semibold">Black Name</span>
-            <input className="mt-1" value={blackName} onChange={(e) => setBlackName(e.target.value)} placeholder="Black player" />
+            <input className="mt-1 px-3 py-2 rounded-md border border-stone-600 bg-stone-900 text-white" value={blackName} onChange={(e) => setBlackName(e.target.value)} placeholder="Black player" />
           </label>
         </div>
 
@@ -59,7 +59,9 @@ export default function SetupScreen({ onStart, onOpenSettings }: { onStart: (dat
         </div>
 
         <div style={{display:'grid', gap:8}}>
-          <button className="start" onClick={start}>Play</button>
+          <button className="start" onClick={start}>
+            Play
+          </button>
         </div>
         
       </div>
