@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+﻿import { useEffect, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import ChessBoard from '../components/ChessBoard';
 import type { Move } from '../chess/types';
@@ -9,12 +9,9 @@ export default function OnlineGame({ onExit }: { onExit?: () => void }) {
   const [connected, setConnected] = useState(false);
   const [myColor, setMyColor] = useState<'w'|'b'|'spec'|'?'>('?');
   const [players, setPlayers] = useState<{ w: string; b: string }>({ w: 'White', b: 'Black' });
-  const [hasW, setHasW] = useState(false);
-  const [hasB, setHasB] = useState(false);
   const [externalMove, setExternalMove] = useState<Move | null>(null);
   const sockRef = useRef<Socket | null>(null);
   const [sanHistory, setSanHistory] = useState<Array<{ san: string; color: 'w'|'b'; by?: string }>>([]);
-  const [messages, setMessages] = useState<Array<{ type: 'info'|'success'|'error', text: string }>>([]);
   const [userName, setUserName] = useState('Guest');
 
   useEffect(() => { me().then(u => setUserName(u?.displayName || 'Guest')); }, []);
@@ -23,21 +20,13 @@ export default function OnlineGame({ onExit }: { onExit?: () => void }) {
     const url = getServerUrl();
     const socket = io(url, { withCredentials: true });
     sockRef.current = socket;
-    socket.on('connect', () => { setConnected(true); pushMsg('success','Connected to server'); });
-    socket.on('connect_error', (err: any) => { setConnected(false); pushMsg('error', 'Failed to connect: '+(err?.message||'unknown error')); });
-    socket.on('disconnect', () => { setConnected(false); setMyColor('?'); pushMsg('error','Disconnected from server'); });
+    socket.on('connect', () => setConnected(true));
+    socket.on('disconnect', () => { setConnected(false); setMyColor('?'); });
     socket.on('you', ({ color }) => setMyColor(color));
-    socket.on('host_ok', ({ roomId }) => pushMsg('success', `Hosting room ${roomId}. Waiting for opponent...`));
-    socket.on('join_ok', ({ roomId, color }) => pushMsg('success', `Joined ${roomId} as ${color==='w'?'White':'Black'}`));
-    socket.on('join_error', ({ reason }) => pushMsg('error', reason==='code_not_found'?'Invite code not found': reason==='room_full'?'Room is full':'Join failed'));
-    socket.on('player_joined', ({ user, color }) => pushMsg('info', `${user?.displayName || 'Player'} joined as ${color==='w'?'White':'Black'}`));
     socket.on('room_update', ({ players: plist }) => {
-      const wp = plist.find((p:any)=>p.color==='w');
-      const bp = plist.find((p:any)=>p.color==='b');
-      const w = wp?.user?.displayName || 'White';
-      const b = bp?.user?.displayName || 'Black';
+      const w = plist.find((p:any)=>p.color==='w')?.user?.displayName || 'White';
+      const b = plist.find((p:any)=>p.color==='b')?.user?.displayName || 'Black';
       setPlayers({ w, b });
-      setHasW(!!wp); setHasB(!!bp);
     });
     socket.on('move', (m: any) => { setExternalMove(m as Move); if ((m as any).san) setSanHistory(h=>[...h, { san: (m as any).san, color: (m as any).color, by: (m as any).byName }]); });
   }
@@ -67,7 +56,6 @@ export default function OnlineGame({ onExit }: { onExit?: () => void }) {
     <div>
       <h2>Online Game</h2>
       <div style={{display:'flex', gap:8, justifyContent:'center', flexWrap:'wrap'}}>
-        <input value={userName} onChange={e=>setUserName(e.target.value)} placeholder="Your name" />
         <input value={roomId} onChange={e=>setRoomId(e.target.value)} placeholder="Room code" />
         <button onClick={genCode}>Generate Code</button>
         <button onClick={copyCode}>Copy</button>
@@ -75,24 +63,16 @@ export default function OnlineGame({ onExit }: { onExit?: () => void }) {
           <button onClick={connect}>Connect</button>
         ) : (
           <>
-            <button onClick={()=>{ if(!roomId){ pushMsg('error','Enter a code to host'); return; } const s=sockRef.current; if(!s) return; s.emit('host', { roomId, user: { displayName: userName } }); }}>Host</button>
-            <button onClick={()=>{ if(!roomId){ pushMsg('error','Enter an invite code to join'); return; } join(); }}>Join</button>
+            <button onClick={()=>{ const s=sockRef.current; if(!s) return; s.emit('host', { roomId, user: { displayName: userName } }); }}>Host</button>
+            <button onClick={join}>Join</button>
           </>
         )}
         {onExit && <button onClick={onExit}>Back</button>}
       </div>
       <div style={{marginTop:8}}>You are: <b>{userName}</b> ({myColor})</div>
-      <div style={{maxWidth:800, margin:'8px auto', textAlign:'left'}}>
-        {messages.map((m,i)=>(<div key={i} style={{padding:'6px 8px', margin:'4px 0', borderRadius:6, background:m.type==='error'?'#7f1d1d': m.type==='success'?'#14532d':'#1f2937', color:'#fff'}}>{m.text}</div>))}
-      </div>
       <div style={{marginTop:16, display:'grid', gridTemplateColumns:'1fr auto', gap:16}}>
-        <div style={{display:'grid', placeItems:'center', position:'relative'}}>
-          {!hasW || !hasB ? (
-            <div style={{position:'absolute', inset:0, display:'grid', placeItems:'center', background:'rgba(0,0,0,0.4)', color:'#fff', zIndex:10, borderRadius:8}}>
-              <div>Waiting for opponent...</div>
-            </div>
-          ) : null}
-          <ChessBoard players={players} selectedModifiers={[]} onExit={onExit} onMove={onLocalMove} externalMove={externalMove} disabled={myColor==='?' || myColor==='spec'} lockColor={myColor==='w'||myColor==='b'? myColor : undefined as any} />
+        <div style={{display:'grid', placeItems:'center'}}>
+          <ChessBoard players={players} selectedModifiers={[]} onExit={onExit} onMove={onLocalMove} externalMove={externalMove} disabled={myColor==='?' || myColor==='spec'} />
         </div>
         <div style={{textAlign:'left'}}>
           <h3>Moves</h3>
@@ -105,6 +85,5 @@ export default function OnlineGame({ onExit }: { onExit?: () => void }) {
       </div>
     </div>
   );
-
-  function pushMsg(type: 'info'|'success'|'error', text: string){ setMessages(msgs => [...msgs, { type, text }]); }
 }
+

@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
-import { getServerUrl, setServerUrl, login, register, logout, me, type User } from '../api';
+import { getServerUrl, setServerUrl, login, register, logout, me, type User, ApiError } from '../api';
 
 export default function AuthPanel({ onAuthed, onGoProfile }: { onAuthed?: (user: User | null) => void; onGoProfile?: () => void }) {
   const [mode, setMode] = useState<'login'|'register'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
+  const [showPw, setShowPw] = useState(false);
+  const [showPw2, setShowPw2] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [serverUrl, setServer] = useState(getServerUrl());
   const [user, setUser] = useState<User | null>(null);
@@ -24,7 +26,12 @@ export default function AuthPanel({ onAuthed, onGoProfile }: { onAuthed?: (user:
     try {
       const u = await login(email, password);
       setUser(u); onAuthed?.(u);
-    } catch (e) { setError('Login failed'); }
+    } catch (e) {
+      if (e instanceof ApiError) {
+        if (e.code === 'invalid_credentials') setError('Invalid email or password');
+        else setError(`Login failed (${e.code})`);
+      } else setError('Login failed');
+    }
   }
   async function doRegister() {
     setError(null);
@@ -32,7 +39,18 @@ export default function AuthPanel({ onAuthed, onGoProfile }: { onAuthed?: (user:
       if (password !== confirm) { setError('Passwords do not match'); return; }
       const u = await register(email, password, displayName || email.split('@')[0]);
       setUser(u); onAuthed?.(u);
-    } catch (e) { setError('Register failed'); }
+    } catch (e) {
+      if (e instanceof ApiError) {
+        const map: Record<string,string> = {
+          invalid_email: 'Please enter a valid email address',
+          weak_password: 'Password must be at least 8 characters',
+          email_taken: 'This email is already registered',
+          missing_fields: 'Please fill out all fields',
+          server_error: 'Server error. Please try again later',
+        };
+        setError(map[e.code] || `Registration failed (${e.code})`);
+      } else setError('Register failed');
+    }
   }
   async function doLogout() {
     await logout();
@@ -60,7 +78,10 @@ export default function AuthPanel({ onAuthed, onGoProfile }: { onAuthed?: (user:
           </div>
           <div>
             <label>Password<br/>
-              <input type="password" value={password} onChange={e=>setPassword(e.target.value)} />
+              <div style={{display:'flex', gap:6}}>
+                <input type={showPw?'text':'password'} value={password} onChange={e=>setPassword(e.target.value)} />
+                <button type="button" onClick={()=>setShowPw(s=>!s)}>{showPw?'Hide':'Show'}</button>
+              </div>
             </label>
           </div>
           {mode==='register' && (
@@ -73,7 +94,10 @@ export default function AuthPanel({ onAuthed, onGoProfile }: { onAuthed?: (user:
           {mode==='register' && (
             <div>
               <label>Confirm password<br/>
-                <input type="password" value={confirm} onChange={e=>setConfirm(e.target.value)} />
+                <div style={{display:'flex', gap:6}}>
+                  <input type={showPw2?'text':'password'} value={confirm} onChange={e=>setConfirm(e.target.value)} />
+                  <button type="button" onClick={()=>setShowPw2(s=>!s)}>{showPw2?'Hide':'Show'}</button>
+                </div>
               </label>
             </div>
           )}

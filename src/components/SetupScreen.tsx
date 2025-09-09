@@ -9,7 +9,7 @@ export interface SetupData {
   selectedModifiers: string[];
 }
 
-export default function SetupScreen({ onStart, onStartOnline, onOpenSettings }: { onStart: (data: SetupData) => void; onStartOnline?: (data: SetupData) => void; onOpenSettings?: () => void }) {
+export default function SetupScreen({ onStart, onOpenSettings }: { onStart: (data: SetupData) => void; onOpenSettings?: () => void }) {
   const [whiteName, setWhiteName] = useState('White');
   const [blackName, setBlackName] = useState('Black');
   const [selected, setSelected] = useState<string[]>([]);
@@ -58,9 +58,8 @@ export default function SetupScreen({ onStart, onStartOnline, onOpenSettings }: 
           ))}
         </div>
 
-        <div style={{display:'grid', gap:8, gridTemplateColumns:'1fr 1fr'}}>
-          <button className="start" onClick={start}>Start Local</button>
-          {onStartOnline && <button className="start" onClick={() => onStartOnline({ whiteName, blackName, selectedModifiers: selected })}>Play Online (beta)</button>}
+        <div style={{display:'grid', gap:8}}>
+          <button className="start" onClick={start}>Play</button>
         </div>
         
       </div>

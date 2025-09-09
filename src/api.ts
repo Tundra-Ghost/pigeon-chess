@@ -1,5 +1,15 @@
 export type User = { id: number; email: string; displayName: string };
 
+export class ApiError extends Error {
+  status: number;
+  code: string;
+  constructor(status: number, code: string) {
+    super(code);
+    this.status = status;
+    this.code = code;
+  }
+}
+
 const LS_SERVER_URL = 'serverUrl';
 export function getServerUrl(): string {
   return localStorage.getItem(LS_SERVER_URL) || 'http://localhost:8787';
@@ -15,7 +25,14 @@ async function api<T>(path: string, opts: RequestInit = {}): Promise<T> {
     headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) },
     ...opts,
   });
-  if (!res.ok) throw new Error(`API ${res.status}`);
+  if (!res.ok) {
+    let code = `HTTP_${res.status}`;
+    try {
+      const j = await res.json();
+      if (typeof j?.error === 'string') code = j.error;
+    } catch {}
+    throw new ApiError(res.status, code);
+  }
   return res.json();
 }
 
@@ -47,4 +64,3 @@ export async function me(): Promise<User | null> {
 export async function logout(): Promise<void> {
   await api('/api/auth/logout', { method: 'POST' });
 }
-

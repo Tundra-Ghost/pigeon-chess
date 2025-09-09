@@ -10,6 +10,7 @@ import path from 'path';
 import rateLimit from 'express-rate-limit';
 import { createServer } from 'http';
 import { Server as IOServer } from 'socket.io';
+import { initialBoard, at, legalMoves, makeMove, isCheck, isCheckmate, moveToSAN, opposite, positionKey, insufficientMaterial } from './chess.js';
 
 const PORT = process.env.PORT || 8787;
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
@@ -24,6 +25,26 @@ db.exec(`CREATE TABLE IF NOT EXISTS users (
   email TEXT UNIQUE NOT NULL,
   password_hash TEXT NOT NULL,
   display_name TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);`);
+db.exec(`CREATE TABLE IF NOT EXISTS matches (
+  code TEXT PRIMARY KEY,
+  host_user_id INTEGER,
+  guest_user_id INTEGER,
+  status TEXT NOT NULL DEFAULT 'waiting',
+  created_at TEXT NOT NULL,
+  result TEXT
+);`);
+try { db.exec(`ALTER TABLE matches ADD COLUMN result TEXT`); } catch {}
+db.exec(`CREATE TABLE IF NOT EXISTS moves (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  match_code TEXT NOT NULL,
+  ply INTEGER NOT NULL,
+  color TEXT NOT NULL,
+  san TEXT NOT NULL,
+  from_r INTEGER, from_c INTEGER, to_r INTEGER, to_c INTEGER,
+  promotion TEXT,
+  player_name TEXT,
   created_at TEXT NOT NULL
 );`);
 
@@ -100,24 +121,109 @@ app.post('/api/auth/logout', (req, res) => {
   res.json({ ok: true });
 });
 
+// Matches REST endpoints
+app.get('/api/matches', (req, res) => {
+  const limit = Math.min(100, Number(req.query.limit) || 20);
+  const mine = String(req.query.mine || '') === '1';
+  let rows;
+  if (mine && req.cookies?.token) {
+    try {
+      const u = jwt.verify(req.cookies.token, JWT_SECRET);
+      rows = db.prepare('SELECT code, status, result, created_at, host_user_id, guest_user_id FROM matches WHERE host_user_id = ? OR guest_user_id = ? ORDER BY created_at DESC LIMIT ?').all(u.id, u.id, limit);
+    } catch {
+      rows = db.prepare('SELECT code, status, result, created_at, host_user_id, guest_user_id FROM matches ORDER BY created_at DESC LIMIT ?').all(limit);
+    }
+  } else {
+    rows = db.prepare('SELECT code, status, result, created_at, host_user_id, guest_user_id FROM matches ORDER BY created_at DESC LIMIT ?').all(limit);
+  }
+  res.json({ matches: rows });
+});
+
+app.get('/api/matches/:code/moves', (req, res) => {
+  const code = req.params.code;
+  const rows = db.prepare('SELECT ply, color, san, from_r, from_c, to_r, to_c, promotion, player_name, created_at FROM moves WHERE match_code = ? ORDER BY ply ASC').all(code);
+  res.json({ code, moves: rows });
+});
+
 const httpServer = createServer(app);
 const io = new IOServer(httpServer, {
   cors: { origin: CORS_ORIGIN, credentials: true },
 });
 
-const rooms = new Map(); // roomId -> { players: Map<socketId,{color,user}>, moves: [], turn: 'w'|'b' }
+const rooms = new Map(); // roomId -> { players: Map<socketId,{color,user}>, moves: [], turn, board, enPassantTarget, ply, hostId, started, halfmoveClock, repetition }
 
 io.on('connection', (socket) => {
-  socket.on('join_room', ({ roomId, user }) => {
-    socket.join(roomId);
+  // Attempt to extract auth user from cookie JWT
+  const cookie = socket.handshake.headers?.cookie || '';
+  let authUser = null;
+  try {
+    const token = cookie.split(';').map(s=>s.trim()).find(s=>s.startsWith('token='))?.slice(6);
+    if (token) authUser = jwt.verify(token, JWT_SECRET);
+  } catch {}
+  socket.data.user = authUser || null;
+
+  socket.on('host', ({ roomId, user }) => {
+    const now = new Date().toISOString();
+    try {
+      db.prepare('INSERT OR IGNORE INTO matches (code, status, created_at, host_user_id) VALUES (?, ?, ?, ?)')
+        .run(roomId, 'waiting', now, socket.data.user?.id || null);
+    } catch {}
     let room = rooms.get(roomId);
-    if (!room) { room = { players: new Map(), moves: [], turn: 'w' }; rooms.set(roomId, room); }
-    // assign color
+    if (!room) {
+      room = { players: new Map(), moves: [], turn: 'w', board: initialBoard(), enPassantTarget: null, ply: 0, hostId: socket.id, started: false };
+      rooms.set(roomId, room);
+    }
+    if (room.started) { socket.emit('join_error', { reason: 'game_already_started' }); return; }
+    socket.join(roomId);
     const assigned = [...room.players.values()].map(p => p.color);
     const color = assigned.includes('w') ? (assigned.includes('b') ? 'spec' : 'b') : 'w';
-    room.players.set(socket.id, { color, user });
+    room.players.set(socket.id, { color, user: user || authUser || { displayName: authUser?.displayName } });
     socket.emit('you', { color });
+    socket.emit('host_ok', { roomId });
     io.to(roomId).emit('room_update', { players: [...room.players.values()].map((p) => ({ color: p.color, user: p.user })), moves: room.moves });
+  });
+
+  socket.on('join_room', ({ roomId, user }) => {
+    const match = db.prepare('SELECT code FROM matches WHERE code = ?').get(roomId);
+    if (!match) { socket.emit('join_error', { reason: 'code_not_found' }); return; }
+    let room = rooms.get(roomId);
+    if (!room) { room = { players: new Map(), moves: [], turn: 'w', board: initialBoard(), enPassantTarget: null, ply: 0, hostId: null, started: false, halfmoveClock: 0, repetition: {} }; rooms.set(roomId, room); }
+    // rehydrate from DB
+    const pastMoves = db.prepare('SELECT * FROM moves WHERE match_code = ? ORDER BY ply ASC').all(roomId);
+    for (const m of pastMoves) {
+      const move = { from: { r: m.from_r, c: m.from_c }, to: { r: m.to_r, c: m.to_c }, promotion: m.promotion || undefined };
+      room.board = makeMove(room.board, move, room.enPassantTarget);
+      const piece = at(room.board, move.to);
+      if (piece && piece.type==='P' && Math.abs(m.to_r - m.from_r)===2) {
+        room.enPassantTarget = { r: (m.to_r + m.from_r)/2, c: m.from_c };
+      } else {
+        room.enPassantTarget = null;
+      }
+      room.ply = m.ply;
+      room.turn = room.turn==='w'?'b':'w';
+    }
+    if (room.started) { socket.emit('join_error', { reason: 'game_already_started' }); return; }
+    const assigned = [...room.players.values()].map(p => p.color).filter(c => c === 'w' || c === 'b');
+    if (assigned.includes('w') && assigned.includes('b')) { socket.emit('join_error', { reason: 'room_full' }); return; }
+    const color = assigned.includes('w') ? 'b' : 'w';
+    socket.join(roomId);
+    room.players.set(socket.id, { color, user: user || authUser || { displayName: authUser?.displayName } });
+    socket.emit('you', { color });
+    socket.emit('join_ok', { roomId, color });
+    try { db.prepare('UPDATE matches SET guest_user_id = COALESCE(guest_user_id, ?) WHERE code = ?')
+      .run(socket.data.user?.id || null, roomId); } catch {}
+    io.to(roomId).emit('player_joined', { user, color });
+    io.to(roomId).emit('room_update', { players: [...room.players.values()].map((p) => ({ color: p.color, user: p.user })), moves: room.moves });
+  });
+
+  socket.on('start_game', ({ roomId }) => {
+    const room = rooms.get(roomId);
+    if (!room) { socket.emit('error_msg', { reason: 'room_missing' }); return; }
+    if (room.hostId && socket.id !== room.hostId) { socket.emit('error_msg', { reason: 'not_host' }); return; }
+    const assigned = [...room.players.values()].map(p => p.color).filter(c => c==='w' || c==='b');
+    if (!(assigned.includes('w') && assigned.includes('b'))) { socket.emit('error_msg', { reason: 'need_two_players' }); return; }
+    room.started = true;
+    io.to(roomId).emit('game_started', { roomId });
   });
 
   socket.on('move', ({ roomId, move }) => {
@@ -126,9 +232,55 @@ io.on('connection', (socket) => {
     const player = room.players.get(socket.id);
     if (!player || (player.color !== 'w' && player.color !== 'b')) return; // spectators can't move
     if (player.color !== room.turn) return; // not your turn
-    room.moves.push(move);
+    // validate move
+    const piece = at(room.board, move.from);
+    if (!piece || piece.color !== player.color) return;
+    const legal = legalMoves(room.board, move.from, player.color, room.enPassantTarget);
+    if (!legal.some(d => d.r === move.to.r && d.c === move.to.c)) return; // illegal
+    // promotion default to Q if necessary
+    if (piece.type === 'P') {
+      if (player.color === 'w' && move.to.r === 0 && !move.promotion) move.promotion = 'Q';
+      if (player.color === 'b' && move.to.r === 7 && !move.promotion) move.promotion = 'Q';
+    }
+    const san = moveToSAN(room.board, move, player.color, room.enPassantTarget);
+    // update EP target
+    let nextEP = null;
+    if (piece.type === 'P' && Math.abs(move.to.r - move.from.r) === 2) {
+      nextEP = { r: (move.to.r + move.from.r) / 2, c: move.from.c };
+    }
+    room.board = makeMove(room.board, move, room.enPassantTarget);
+    room.enPassantTarget = nextEP;
+    room.moves.push({ ...move, san, color: player.color, byName: player.user?.displayName });
     room.turn = room.turn === 'w' ? 'b' : 'w';
-    io.to(roomId).emit('move', move);
+    room.ply += 1;
+    // draw detection bookkeeping
+    room.halfmoveClock = (piece.type==='P' || at(room.board, move.to) /*capture after move*/)? 0 : ((room.halfmoveClock||0)+1);
+    const key = positionKey(room.board, room.turn, room.enPassantTarget);
+    room.repetition = room.repetition || {}; room.repetition[key] = (room.repetition[key]||0)+1;
+    // persist move
+    try {
+      db.prepare('INSERT INTO moves (match_code, ply, color, san, from_r, from_c, to_r, to_c, promotion, player_name, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+        .run(roomId, room.ply, player.color, san, move.from.r, move.from.c, move.to.r, move.to.c, move.promotion || null, player.user?.displayName || null, new Date().toISOString());
+    } catch {}
+    // game over detection
+    let winner = null; let drawReason = null;
+    const opponent = room.turn; // after switch
+    if (isCheckmate(room.board, opponent, room.enPassantTarget)) {
+      winner = player.color;
+    } else {
+      const anyMove = hasAnyLegalMove(room.board, opponent, room.enPassantTarget);
+      if (!anyMove && !isCheck(room.board, opponent, room.enPassantTarget)) { drawReason = 'stalemate'; }
+      else if (insufficientMaterial(room.board)) { drawReason = 'insufficient_material'; }
+      else if ((room.halfmoveClock||0) >= 100) { drawReason = 'fifty_move_rule'; }
+      else if ((room.repetition[key]||0) >= 3) { drawReason = 'threefold_repetition'; }
+    }
+    io.to(roomId).emit('move', { ...move, san, color: player.color, byName: player.user?.displayName });
+    if (winner || drawReason) {
+      room.started = false;
+      const result = winner ? `win:${winner}` : `draw:${drawReason}`;
+      try { db.prepare('UPDATE matches SET status = ?, result = ? WHERE code = ?').run('finished', result, roomId); } catch {}
+      io.to(roomId).emit('game_over', { result, winner, drawReason });
+    }
   });
 
   socket.on('disconnect', () => {

@@ -1,8 +1,7 @@
-import { useMemo, useState } from 'react';
+﻿import { useMemo, useState } from 'react';
 import type { Color, Coord, GameState, Move } from '../chess/types';
 import { initialBoard } from '../chess/initial';
 import { at, isCheck, isCheckmate, legalMoves, makeMove, needsPromotion, opposite, hasAnyLegalMove, insufficientMaterial, positionKey, moveToSAN } from '../chess/logic';
-import { playMove, playCapture, playCastle } from '../sound';
 import './ChessBoard.css';
 
 // Piece images (Cburnett set; see CREDITS.md)
@@ -30,7 +29,7 @@ function algebraic(pos: Coord): string {
   return `${files[pos.c]}${8 - pos.r}`;
 }
 
-export default function ChessBoard({ players, selectedModifiers, onExit, onMove, disabled = false, externalMove, showHints = true, lockColor, onOpenSettings }: { players: { w: string; b: string }, selectedModifiers: string[]; onExit?: () => void; onMove?: (m: Move) => void; disabled?: boolean; externalMove?: Move | null; showHints?: boolean; lockColor?: Color, onOpenSettings?: () => void }) {
+export default function ChessBoard({ players, selectedModifiers, onExit, onMove, disabled = false, externalMove, showHints = true }: { players: { w: string; b: string }, selectedModifiers: string[]; onExit?: () => void; onMove?: (m: Move) => void; disabled?: boolean; externalMove?: Move | null; showHints?: boolean; }) {
   const [state, setState] = useState<GameState>(() => ({
     board: initialBoard(),
     turn: 'w',
@@ -59,20 +58,19 @@ export default function ChessBoard({ players, selectedModifiers, onExit, onMove,
           : state.drawReason === 'threefold_repetition'
           ? 'Threefold repetition'
           : 'Draw';
-        return `Draw — ${reason}`;
+        return `Draw â€” ${reason}`;
       }
       const name = state.winner === 'w' ? state.players?.w ?? 'White' : state.players?.b ?? 'Black';
       return `${name} wins!`;
     }
     const check = isCheck(state.board, state.turn, state.enPassantTarget);
     const name = state.turn === 'w' ? state.players?.w ?? 'White' : state.players?.b ?? 'Black';
-    if (check) return `${name} to move — Check!`;
+    if (check) return `${name} to move â€” Check!`;
     return `${name} to move`;
   }, [state.board, state.turn, state.winner, state.enPassantTarget, state.players, state.drawReason]);
 
   function onSquareClick(r: number, c: number) {
     if (disabled) return;
-    if (lockColor && lockColor !== state.turn) return;
     if (state.winner) return;
     const pos: Coord = { r, c };
     const piece = at(state.board, pos);
@@ -131,9 +129,6 @@ export default function ChessBoard({ players, selectedModifiers, onExit, onMove,
         halfmoveClock,
         repetition: rep,
       };
-      if (moving.type === 'K' && Math.abs(to.c - from.c) === 2) playCastle();
-      else if (didCapture) playCapture();
-      else playMove();
       setState(nextState);
       onMove?.(move);
       return;
@@ -166,7 +161,6 @@ export default function ChessBoard({ players, selectedModifiers, onExit, onMove,
     if (lastAppliedKey !== key) {
       const moving = at(state.board, ext.from);
       if (moving) {
-        const hadCapture = !!at(state.board, ext.to) || !!ext.isEnPassant;
         const nextBoard = makeMove(state.board, ext, state.enPassantTarget ?? null);
         const nextTurn: Color = opposite(state.turn);
         const nextState: GameState = {
@@ -178,9 +172,6 @@ export default function ChessBoard({ players, selectedModifiers, onExit, onMove,
           inCheck: isCheck(nextBoard, nextTurn, state.enPassantTarget ?? null) ? nextTurn : null,
           history: [...state.history, ext],
         };
-        if (moving.type === 'K' && Math.abs(ext.to.c - ext.from.c) === 2) playCastle();
-        else if (hadCapture) playCapture();
-        else playMove();
         setState(nextState);
         setLastAppliedKey(key);
       }
@@ -211,7 +202,6 @@ export default function ChessBoard({ players, selectedModifiers, onExit, onMove,
         <h2 className="text-xl font-bold">Pigeon Chess (Basic)</h2>
         <div className="status">{statusText}</div>
         <button className="reset" onClick={reset}>New Game</button>
-        {onOpenSettings ? <button className="reset" onClick={onOpenSettings}>Settings</button> : null}
         {onExit ? <button className="reset" onClick={onExit}>Back to Setup</button> : null}
         <div className="legend">
           <div><span className="dot sel"/> Selected</div>
@@ -222,7 +212,7 @@ export default function ChessBoard({ players, selectedModifiers, onExit, onMove,
           <h3>Moves</h3>
           <ol>
             {state.history.map((m, i) => (
-              <li key={i}>{m.color === 'w' ? (state.players?.w ?? 'White') : (state.players?.b ?? 'Black')}: {m.san || `${algebraic(m.from)}→${algebraic(m.to)}`}</li>
+              <li key={i}>{m.color === 'w' ? (state.players?.w ?? 'White') : (state.players?.b ?? 'Black')}: {m.san || `${algebraic(m.from)}â†’${algebraic(m.to)}`}</li>
             ))}
           </ol>
         </div>
@@ -258,3 +248,4 @@ export default function ChessBoard({ players, selectedModifiers, onExit, onMove,
     </div>
   );
 }
+

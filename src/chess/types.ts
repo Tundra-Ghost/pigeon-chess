@@ -25,6 +25,9 @@ export interface Move {
   // inferred flags
   isCastle?: boolean;
   isEnPassant?: boolean;
+  san?: string;
+  color?: Color;
+  byName?: string;
 }
 
 export interface GameState {

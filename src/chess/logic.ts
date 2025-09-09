@@ -341,3 +341,56 @@ export function positionKey(board: Board, turn: Color, enPassantTarget?: Coord |
   const cr = castlingRights(board);
   return `${boardStr} ${turn} ${cr} ${ep}`;
 }
+
+function fileChar(c: number): string { return 'abcdefgh'[c]; }
+function squareAlg(pos: Coord): string { return `${fileChar(pos.c)}${8 - pos.r}`; }
+
+export function moveToSAN(board: Board, move: Move, color: Color, enPassantTarget?: Coord | null): string {
+  const piece = at(board, move.from)!;
+  const target = at(board, move.to);
+  const capture = !!target || move.isEnPassant;
+  // Castling
+  if (piece.type === 'K' && Math.abs(move.to.c - move.from.c) === 2) {
+    const san = move.to.c === 6 ? 'O-O' : 'O-O-O';
+    const next = makeMove(board, { ...move }, enPassantTarget);
+    const check = isCheck(next, opposite(color), enPassantTarget);
+    const mate = isCheckmate(next, opposite(color), enPassantTarget);
+    return san + (mate ? '#' : check ? '+' : '');
+  }
+
+  const pieceLetter = piece.type === 'P' ? '' : piece.type;
+  let disamb = '';
+  if (piece.type !== 'P') {
+    // disambiguation: any other same-type piece that can also move to `to` legally?
+    const sameTypeSources: Coord[] = [];
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        if (r === move.from.r && c === move.from.c) continue;
+        const p = board[r][c];
+        if (!p || p.type !== piece.type || p.color !== color) continue;
+        const cand = legalMoves(board, { r, c }, color, enPassantTarget);
+        if (cand.some(d => d.r === move.to.r && d.c === move.to.c)) sameTypeSources.push({ r, c });
+      }
+    }
+    if (sameTypeSources.length > 0) {
+      const sameFile = sameTypeSources.some(s => s.c === move.from.c);
+      const sameRank = sameTypeSources.some(s => s.r === move.from.r);
+      if (!sameFile) disamb = fileChar(move.from.c);
+      else if (!sameRank) disamb = String(8 - move.from.r);
+      else disamb = fileChar(move.from.c) + String(8 - move.from.r);
+    }
+  }
+
+  let core = '';
+  if (piece.type === 'P') {
+    if (capture) core = `${fileChar(move.from.c)}x${squareAlg(move.to)}`; else core = squareAlg(move.to);
+  } else {
+    core = pieceLetter + disamb + (capture ? 'x' : '') + squareAlg(move.to);
+  }
+  if (move.promotion) core += `=${move.promotion}`;
+
+  const next = makeMove(board, { ...move }, enPassantTarget);
+  const isMate = isCheckmate(next, opposite(color), enPassantTarget);
+  const isChk = isCheck(next, opposite(color), enPassantTarget);
+  return core + (isMate ? '#' : isChk ? '+' : '');
+}

@@ -1,10 +1,29 @@
 import { useEffect, useState } from 'react';
 
-type Settings = { showHints: boolean; theme: 'auto'|'light'|'dark' };
+type Settings = {
+  showHints: boolean;
+  theme: 'auto'|'light'|'dark';
+  sfxEnabled: boolean;
+  sfxVolume: number; // 0..1
+  bgmEnabled: boolean;
+  bgmVolume: number; // 0..1
+};
 const LS_KEY = 'settings';
 
 function load(): Settings {
-  try { return JSON.parse(localStorage.getItem(LS_KEY) || '') as Settings } catch { return { showHints: true, theme: 'auto' }; }
+  try {
+    const s = JSON.parse(localStorage.getItem(LS_KEY) || '') as Partial<Settings>;
+    return {
+      showHints: s.showHints ?? true,
+      theme: s.theme ?? 'auto',
+      sfxEnabled: s.sfxEnabled ?? true,
+      sfxVolume: s.sfxVolume ?? 0.7,
+      bgmEnabled: s.bgmEnabled ?? true,
+      bgmVolume: s.bgmVolume ?? 0.5,
+    };
+  } catch {
+    return { showHints: true, theme: 'auto', sfxEnabled: true, sfxVolume: 0.7, bgmEnabled: true, bgmVolume: 0.5 };
+  }
 }
 function save(s: Settings) { localStorage.setItem(LS_KEY, JSON.stringify(s)); }
 
@@ -19,6 +38,20 @@ export default function SettingsModal({ open, onClose, onChange }: { open: boole
         <label style={{display:'flex', alignItems:'center', gap:8}}>
           <input type="checkbox" checked={settings.showHints} onChange={e=>setSettings(s=>({...s, showHints: e.target.checked}))} /> Show legal move hints
         </label>
+        <div style={{marginTop:8}}>
+          <div style={{fontWeight:600, marginBottom:4}}>Sound Effects</div>
+          <label style={{display:'flex', alignItems:'center', gap:8}}>
+            <input type="checkbox" checked={settings.sfxEnabled} onChange={e=>setSettings(s=>({...s, sfxEnabled: e.target.checked}))} /> Enable SFX
+          </label>
+          <input type="range" min={0} max={1} step={0.01} value={settings.sfxVolume} onChange={e=>setSettings(s=>({...s, sfxVolume: parseFloat(e.target.value)}))} style={{width:'100%'}} />
+        </div>
+        <div style={{marginTop:8}}>
+          <div style={{fontWeight:600, marginBottom:4}}>Music</div>
+          <label style={{display:'flex', alignItems:'center', gap:8}}>
+            <input type="checkbox" checked={settings.bgmEnabled} onChange={e=>setSettings(s=>({...s, bgmEnabled: e.target.checked}))} /> Enable BGM
+          </label>
+          <input type="range" min={0} max={1} step={0.01} value={settings.bgmVolume} onChange={e=>setSettings(s=>({...s, bgmVolume: parseFloat(e.target.value)}))} style={{width:'100%'}} />
+        </div>
         <div style={{marginTop:8}}>
           <div>Theme</div>
           <select value={settings.theme} onChange={e=>setSettings(s=>({...s, theme: e.target.value as Settings['theme']}))}>
