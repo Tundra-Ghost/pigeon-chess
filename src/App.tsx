@@ -8,7 +8,7 @@ import AuthModal from './components/AuthModal';
 import ProfilePage from './components/ProfilePage';
 import { useEffect, useState } from 'react';
 import { Routes, Route, useNavigate, useParams, useLocation } from 'react-router-dom';
-import { playMenuBgm, playGameBgm, setSoundOptions, unlockBgm } from './sound';
+import { playMenuBgm, playGameBgm, setSoundOptions, unlockBgm, playClick } from './sound';
 import { SettingsProvider } from './contexts/SettingsContext';
 import { UiProvider } from './contexts/UiContext';
 import MenuScreen from './components/MenuScreen';
@@ -52,6 +52,22 @@ function App() {
       window.removeEventListener('keydown', unlock as any);
     };
   }, [location.pathname]);
+
+  // Global button click SFX
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (!t) return;
+      const btn = t.closest('button, [role="button"], .btn, .btn-medieval, .btn-mini') as HTMLElement | null;
+      if (!btn) return;
+      if ((btn as HTMLButtonElement).disabled) return;
+      // Avoid playing for range inputs and links unless explicit role
+      if (btn.tagName === 'INPUT') return;
+      playClick();
+    };
+    document.addEventListener('click', handler);
+    return () => document.removeEventListener('click', handler);
+  }, []);
 
   useEffect(() => {
     setSoundOptions({
