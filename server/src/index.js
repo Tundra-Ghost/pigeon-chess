@@ -14,7 +14,8 @@ import { initialBoard, at, legalMoves, makeMove, isCheck, isCheckmate, moveToSAN
 
 const PORT = process.env.PORT || 8787;
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
-const CORS_ORIGIN = process.env.CORS_ORIGIN || 'http://localhost:5173';
+const CORS_ORIGIN = process.env.CORS_ORIGIN || '';
+const CORS_ORIGINS = (process.env.CORS_ORIGINS || 'http://localhost:5173,http://localhost:5175').split(',').map(s=>s.trim()).filter(Boolean);
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dbPath = path.join(__dirname, '../db/data.sqlite');
@@ -52,7 +53,17 @@ const app = express();
 app.use(helmet());
 app.use(express.json());
 app.use(cookieParser());
-app.use(cors({ origin: CORS_ORIGIN, credentials: true }));
+app.use(cors({
+  origin: (origin, cb) => {
+    if (!origin) return cb(null, true);
+    if (origin === CORS_ORIGIN && CORS_ORIGIN) return cb(null, true);
+    if (CORS_ORIGINS.includes(origin)) return cb(null, true);
+    if (/\.github\.io$/.test(new URL(origin).hostname)) return cb(null, true);
+    cb(new Error('CORS_NOT_ALLOWED'));
+  },
+  credentials: true,
+  optionsSuccessStatus: 204,
+}));
 
 const authLimiter = rateLimit({ windowMs: 60_000, max: 20 });
 
@@ -80,9 +91,9 @@ function requireAuth(req, res, next) {
 
 app.post('/api/auth/register', authLimiter, async (req, res) => {
   const { email, password, displayName } = req.body || {};
-  if (!email || !password || !displayName) return res.status(400).json({ error: 'missing_fields' });
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).json({ error: 'invalid_email' });
-  if (password.length < 8) return res.status(400).json({ error: 'weak_password' });
+  if (!email || !password || !displayName) return res.status(400).json({ error: 'missing_fields', detail: 'Email, password, and display name are required.' });
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).json({ error: 'invalid_email', detail: 'Please provide a valid email address.' });
+  if (password.length < 8) return res.status(400).json({ error: 'weak_password', detail: 'Password must be at least 8 characters.' });
   try {
     const hash = await bcrypt.hash(password, 10);
     const stmt = db.prepare('INSERT INTO users (email, password_hash, display_name, created_at) VALUES (?, ?, ?, ?)');
@@ -93,19 +104,19 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
     setAuthCookie(res, token);
     res.json({ user });
   } catch (e) {
-    if (String(e).includes('UNIQUE')) return res.status(409).json({ error: 'email_taken' });
+    if (String(e).includes('UNIQUE')) return res.status(409).json({ error: 'email_taken', detail: 'This email is already registered.' });
     console.error(e);
-    res.status(500).json({ error: 'server_error' });
+    res.status(500).json({ error: 'server_error', detail: 'Unexpected server error.' });
   }
 });
 
 app.post('/api/auth/login', authLimiter, async (req, res) => {
   const { email, password } = req.body || {};
-  if (!email || !password) return res.status(400).json({ error: 'missing_fields' });
+  if (!email || !password) return res.status(400).json({ error: 'missing_fields', detail: 'Email and password required.' });
   const row = db.prepare('SELECT id, email, password_hash, display_name FROM users WHERE email = ?').get(email.toLowerCase());
-  if (!row) return res.status(401).json({ error: 'invalid_credentials' });
+  if (!row) return res.status(401).json({ error: 'invalid_credentials', detail: 'Invalid email or password.' });
   const ok = await bcrypt.compare(password, row.password_hash);
-  if (!ok) return res.status(401).json({ error: 'invalid_credentials' });
+  if (!ok) return res.status(401).json({ error: 'invalid_credentials', detail: 'Invalid email or password.' });
   const user = { id: row.id, email: row.email, displayName: row.display_name };
   const token = jwt.sign(user, JWT_SECRET, { expiresIn: '7d' });
   setAuthCookie(res, token);
@@ -120,6 +131,8 @@ app.post('/api/auth/logout', (req, res) => {
   res.clearCookie('token', { path: '/' });
   res.json({ ok: true });
 });
+
+app.get('/api/health', (req, res) => res.json({ ok: true }));
 
 // Matches REST endpoints
 app.get('/api/matches', (req, res) => {
@@ -180,7 +193,7 @@ io.on('connection', (socket) => {
     room.players.set(socket.id, { color, user: user || authUser || { displayName: authUser?.displayName } });
     socket.emit('you', { color });
     socket.emit('host_ok', { roomId });
-    io.to(roomId).emit('room_update', { players: [...room.players.values()].map((p) => ({ color: p.color, user: p.user })), moves: room.moves });
+    io.to(roomId).emit('room_update', { players: [...room.players.values()].map((p) => ({ color: p.color, user: p.user })), hostId: room.hostId, ready: room.ready || {}, moves: room.moves });
   });
 
   socket.on('join_room', ({ roomId, user }) => {
@@ -213,7 +226,7 @@ io.on('connection', (socket) => {
     try { db.prepare('UPDATE matches SET guest_user_id = COALESCE(guest_user_id, ?) WHERE code = ?')
       .run(socket.data.user?.id || null, roomId); } catch {}
     io.to(roomId).emit('player_joined', { user, color });
-    io.to(roomId).emit('room_update', { players: [...room.players.values()].map((p) => ({ color: p.color, user: p.user })), moves: room.moves });
+    io.to(roomId).emit('room_update', { players: [...room.players.values()].map((p) => ({ color: p.color, user: p.user })), hostId: room.hostId, ready: room.ready || {}, moves: room.moves });
   });
 
   socket.on('start_game', ({ roomId }) => {
@@ -222,8 +235,17 @@ io.on('connection', (socket) => {
     if (room.hostId && socket.id !== room.hostId) { socket.emit('error_msg', { reason: 'not_host' }); return; }
     const assigned = [...room.players.values()].map(p => p.color).filter(c => c==='w' || c==='b');
     if (!(assigned.includes('w') && assigned.includes('b'))) { socket.emit('error_msg', { reason: 'need_two_players' }); return; }
+    const rmap = room.ready || {};
+    if (!(rmap['w'] && rmap['b'])) { socket.emit('error_msg', { reason: 'players_not_ready' }); return; }
     room.started = true;
     io.to(roomId).emit('game_started', { roomId });
+  });
+
+  socket.on('set_ready', ({ roomId, color, ready }) => {
+    const room = rooms.get(roomId); if (!room) return;
+    room.ready = room.ready || {};
+    room.ready[color] = !!ready;
+    io.to(roomId).emit('room_update', { players: [...room.players.values()].map((p) => ({ color: p.color, user: p.user })), hostId: room.hostId, ready: room.ready, moves: room.moves });
   });
 
   socket.on('move', ({ roomId, move }) => {

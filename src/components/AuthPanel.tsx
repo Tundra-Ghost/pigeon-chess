@@ -17,9 +17,20 @@ export default function AuthPanel({ onAuthed, onGoProfile }: { onAuthed?: (user:
     me().then(u => { setUser(u); onAuthed?.(u); });
   }, []);
 
-  function saveServer() {
-    setServerUrl(serverUrl);
+  function saveServer() { setServerUrl(serverUrl); }
+
+  async function testServer() {
+    setError(null);
+    try {
+      const res = await fetch(serverUrl.replace(/\/$/, '') + '/api/health', { credentials: 'include' });
+      if (!res.ok) throw new Error(String(res.status));
+      pushInfo('Server reachable');
+    } catch {
+      setError('Cannot reach server. Check URL and that it is running.');
+    }
   }
+
+  function pushInfo(msg: string){ setError(prev => prev ? prev + ' | ' + msg : msg); }
 
   async function doLogin() {
     setError(null);
@@ -30,7 +41,7 @@ export default function AuthPanel({ onAuthed, onGoProfile }: { onAuthed?: (user:
       if (e instanceof ApiError) {
         if (e.code === 'invalid_credentials') setError('Invalid email or password');
         else setError(`Login failed (${e.code})`);
-      } else setError('Login failed');
+      } else setError('Login failed. Check server URL and CORS.');
     }
   }
   async function doRegister() {
@@ -49,7 +60,7 @@ export default function AuthPanel({ onAuthed, onGoProfile }: { onAuthed?: (user:
           server_error: 'Server error. Please try again later',
         };
         setError(map[e.code] || `Registration failed (${e.code})`);
-      } else setError('Register failed');
+      } else setError('Register failed. Check server URL and CORS.');
     }
   }
   async function doLogout() {
@@ -60,7 +71,7 @@ export default function AuthPanel({ onAuthed, onGoProfile }: { onAuthed?: (user:
   return (
     <div style={{textAlign:'left', marginTop: 12}}>
       <h3>Account</h3>
-      <div style={{fontSize:12, opacity:0.8}}>Server: <input value={serverUrl} onChange={e=>setServer(e.target.value)} onBlur={saveServer} style={{width:'60%'}} /> <button onClick={saveServer}>Save</button></div>
+      <div style={{fontSize:12, opacity:0.8}}>Server: <input value={serverUrl} onChange={e=>setServer(e.target.value)} onBlur={saveServer} style={{width:'60%'}} /> <button onClick={saveServer}>Save</button> <button onClick={testServer}>Test</button></div>
       {user ? (
         <div style={{marginTop:8}}>
           <div>Signed in as <b>{user.displayName}</b> ({user.email})</div>

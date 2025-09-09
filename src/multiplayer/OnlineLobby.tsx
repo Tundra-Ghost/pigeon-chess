@@ -9,6 +9,8 @@ export default function OnlineLobby({ onBack, onStartMatch }: { onBack?: () => v
   const [connected, setConnected] = useState(false);
   const [/* myColor */, setMyColor] = useState<'w'|'b'|'spec'|'?'>('?');
   const [players, setPlayers] = useState<Player[]>([]);
+  const [hostId, setHostId] = useState<string | null>(null);
+  const [readyMap, setReadyMap] = useState<Record<'w'|'b', boolean>>({ w: false, b: false } as any);
   const [userName, setUserName] = useState('Guest');
   const [messages, setMessages] = useState<Array<{ type: 'info'|'success'|'error', text: string }>>([]);
   const sockRef = useRef<Socket | null>(null);
@@ -28,7 +30,7 @@ export default function OnlineLobby({ onBack, onStartMatch }: { onBack?: () => v
     socket.on('join_ok', ({ roomId, color }) => { push('success', `Joined ${roomId} as ${color==='w'?'White':'Black'}`); setConnected(true); });
     socket.on('join_error', ({ reason }) => push('error', reason==='code_not_found'?'Invite code not found': reason==='room_full'?'Room is full': reason==='game_already_started'?'Game already started':'Join failed'));
     socket.on('player_joined', ({ user, color }) => push('info', `${user?.displayName || 'Player'} joined as ${color==='w'?'White':'Black'}`));
-    socket.on('room_update', ({ players }) => setPlayers(players));
+    socket.on('room_update', ({ players, hostId, ready }) => { setPlayers(players); setHostId(hostId || null); setReadyMap(ready || {} as any); });
     socket.on('game_started', ({ roomId }) => {
       const s = sockRef.current; s?.disconnect(); sockRef.current = null;
       onStartMatch(roomId, userName);
@@ -51,6 +53,7 @@ export default function OnlineLobby({ onBack, onStartMatch }: { onBack?: () => v
     const s = sockRef.current; if (!s) return;
     s.emit('start_game', { roomId });
   }
+  function setReady(state: boolean){ const s=sockRef.current; if(!s) return; const color = players.find(p=>!['spec'].includes(p.color) && (p.user?.displayName===userName))?.color || ('?' as any); if(color==='?' ) return; s.emit('set_ready', { roomId, color, ready: state }); }
   function genCode() {
     const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     let code = '';
@@ -76,9 +79,23 @@ export default function OnlineLobby({ onBack, onStartMatch }: { onBack?: () => v
         <button onClick={join}>Join</button>
         {onBack && <button onClick={onBack}>Back</button>}
       </div>
-      <div style={{marginTop:10}}>
-        <div>White: <b>{white}</b></div>
-        <div>Black: <b>{black}</b></div>
+      <div style={{marginTop:10, display:'grid', gap:8}}>
+        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+          <div><b>Lobby Code:</b> {roomId || '—'}</div>
+          <div><b>Host:</b> {hostId? (players.find((p:any)=>p.socketId===hostId)?.user?.displayName || white) : '—'}</div>
+        </div>
+        <div style={{display:'grid', gap:8}}>
+          <div style={{display:'flex', alignItems:'center', gap:8}}>
+            <span style={{fontSize:20}}>♔</span>
+            <div style={{flex:1, background:'#222', padding:'8px 10px', borderRadius:8}}>{white}</div>
+            <div>{readyMap['w']?'Ready':'In Lobby'}</div>
+          </div>
+          <div style={{display:'flex', alignItems:'center', gap:8}}>
+            <span style={{fontSize:20}}>♚</span>
+            <div style={{flex:1, background:'#222', padding:'8px 10px', borderRadius:8}}>{black}</div>
+            <div>{readyMap['b']?'Ready':'In Lobby'}</div>
+          </div>
+        </div>
       </div>
       <div style={{marginTop:10}}>
         {messages.map((m,i)=>(
@@ -86,7 +103,9 @@ export default function OnlineLobby({ onBack, onStartMatch }: { onBack?: () => v
         ))}
       </div>
       <div style={{marginTop:14}}>
-        <button onClick={startGame} disabled={!connected || !ready || !hostMode}>Start Game</button>
+        <button onClick={()=>setReady(true)}>Ready</button>
+        <button onClick={()=>setReady(false)} style={{marginLeft:8}}>Unready</button>
+        <button onClick={startGame} disabled={!connected || !ready || !hostMode || !(readyMap['w']&&readyMap['b'])} style={{marginLeft:8}}>Start Game</button>
         {!hostMode && connected && <span style={{marginLeft:8}}>Waiting for host to start…</span>}
       </div>
     </div>
