@@ -65,10 +65,16 @@ App.tsx # Main app entry
 
 Clone the repo and install dependencies:
 
-```bash
+``` bash
 git clone https://github.com/tundra-ghost/pigeon-chess.git
+```
+``` bash
 cd pigeon-chess
+```
+``` bash
 npm install
+```
+``` bash
 npm run dev
 ```
 
