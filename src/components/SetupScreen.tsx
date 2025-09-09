@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { MODIFIERS } from '../modifiers/data';
+// Auth opens as a modal from parent
 import './SetupScreen.css';
 
 export interface SetupData {
@@ -8,7 +9,7 @@ export interface SetupData {
   selectedModifiers: string[];
 }
 
-export default function SetupScreen({ onStart }: { onStart: (data: SetupData) => void }) {
+export default function SetupScreen({ onStart, onStartOnline, onOpenSettings }: { onStart: (data: SetupData) => void; onStartOnline?: (data: SetupData) => void; onOpenSettings?: () => void }) {
   const [whiteName, setWhiteName] = useState('White');
   const [blackName, setBlackName] = useState('Black');
   const [selected, setSelected] = useState<string[]>([]);
@@ -24,7 +25,13 @@ export default function SetupScreen({ onStart }: { onStart: (data: SetupData) =>
   return (
     <div className="setup-wrap">
       <div className="setup-card">
-        <h2 className="text-2xl font-bold">Pigeon Chess — Setup</h2>
+        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', gap:8}}>
+          <h2 className="text-2xl font-bold">Pigeon Chess — Setup</h2>
+          <div style={{display:'flex', gap:8}}>
+            <button onClick={() => document.dispatchEvent(new CustomEvent('open-auth'))}>Account</button>
+            {onOpenSettings && <button onClick={onOpenSettings}>Settings</button>}
+          </div>
+        </div>
         <div className="row">
           <label>
             <span className="font-semibold">White Name</span>
@@ -51,7 +58,11 @@ export default function SetupScreen({ onStart }: { onStart: (data: SetupData) =>
           ))}
         </div>
 
-        <button className="start" onClick={start}>Start Game</button>
+        <div style={{display:'grid', gap:8, gridTemplateColumns:'1fr 1fr'}}>
+          <button className="start" onClick={start}>Start Local</button>
+          {onStartOnline && <button className="start" onClick={() => onStartOnline({ whiteName, blackName, selectedModifiers: selected })}>Play Online (beta)</button>}
+        </div>
+        
       </div>
     </div>
   );

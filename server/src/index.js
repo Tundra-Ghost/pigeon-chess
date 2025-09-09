@@ -105,24 +105,29 @@ const io = new IOServer(httpServer, {
   cors: { origin: CORS_ORIGIN, credentials: true },
 });
 
-const rooms = new Map(); // roomId -> { players: Map<socketId,{color,user}>, moves: [] }
+const rooms = new Map(); // roomId -> { players: Map<socketId,{color,user}>, moves: [], turn: 'w'|'b' }
 
 io.on('connection', (socket) => {
   socket.on('join_room', ({ roomId, user }) => {
     socket.join(roomId);
     let room = rooms.get(roomId);
-    if (!room) { room = { players: new Map(), moves: [] }; rooms.set(roomId, room); }
+    if (!room) { room = { players: new Map(), moves: [], turn: 'w' }; rooms.set(roomId, room); }
     // assign color
     const assigned = [...room.players.values()].map(p => p.color);
     const color = assigned.includes('w') ? (assigned.includes('b') ? 'spec' : 'b') : 'w';
     room.players.set(socket.id, { color, user });
+    socket.emit('you', { color });
     io.to(roomId).emit('room_update', { players: [...room.players.values()].map((p) => ({ color: p.color, user: p.user })), moves: room.moves });
   });
 
   socket.on('move', ({ roomId, move }) => {
     const room = rooms.get(roomId);
     if (!room) return;
+    const player = room.players.get(socket.id);
+    if (!player || (player.color !== 'w' && player.color !== 'b')) return; // spectators can't move
+    if (player.color !== room.turn) return; // not your turn
     room.moves.push(move);
+    room.turn = room.turn === 'w' ? 'b' : 'w';
     io.to(roomId).emit('move', move);
   });
 

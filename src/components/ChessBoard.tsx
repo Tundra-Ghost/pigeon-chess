@@ -29,7 +29,7 @@ function algebraic(pos: Coord): string {
   return `${files[pos.c]}${8 - pos.r}`;
 }
 
-export default function ChessBoard({ players, selectedModifiers, onExit }: { players: { w: string; b: string }, selectedModifiers: string[]; onExit?: () => void }) {
+export default function ChessBoard({ players, selectedModifiers, onExit, onMove, disabled = false, externalMove, showHints = true }: { players: { w: string; b: string }, selectedModifiers: string[]; onExit?: () => void; onMove?: (m: Move) => void; disabled?: boolean; externalMove?: Move | null; showHints?: boolean; }) {
   const [state, setState] = useState<GameState>(() => ({
     board: initialBoard(),
     turn: 'w',
@@ -70,6 +70,7 @@ export default function ChessBoard({ players, selectedModifiers, onExit }: { pla
   }, [state.board, state.turn, state.winner, state.enPassantTarget, state.players, state.drawReason]);
 
   function onSquareClick(r: number, c: number) {
+    if (disabled) return;
     if (state.winner) return;
     const pos: Coord = { r, c };
     const piece = at(state.board, pos);
@@ -128,6 +129,7 @@ export default function ChessBoard({ players, selectedModifiers, onExit }: { pla
         repetition: rep,
       };
       setState(nextState);
+      onMove?.(move);
       return;
     }
 
@@ -147,6 +149,31 @@ export default function ChessBoard({ players, selectedModifiers, onExit }: { pla
     } else {
       // Clicking empty or opponent clears selection
       setState(s => ({ ...s, selected: null, legalTargets: [] }));
+    }
+  }
+
+  // Apply external moves (e.g., from server)
+  const [lastAppliedKey, setLastAppliedKey] = useState<string | null>(null);
+  const ext = externalMove;
+  if (ext) {
+    const key = `${ext.from.r},${ext.from.c}-${ext.to.r},${ext.to.c}-${ext.promotion || ''}-${state.history.length}`;
+    if (lastAppliedKey !== key) {
+      const moving = at(state.board, ext.from);
+      if (moving) {
+        const nextBoard = makeMove(state.board, ext, state.enPassantTarget ?? null);
+        const nextTurn: Color = opposite(state.turn);
+        const nextState: GameState = {
+          ...state,
+          board: nextBoard,
+          turn: nextTurn,
+          selected: null,
+          legalTargets: [],
+          inCheck: isCheck(nextBoard, nextTurn, state.enPassantTarget ?? null) ? nextTurn : null,
+          history: [...state.history, ext],
+        };
+        setState(nextState);
+        setLastAppliedKey(key);
+      }
     }
   }
 
@@ -196,7 +223,7 @@ export default function ChessBoard({ players, selectedModifiers, onExit }: { pla
             {row.map((sq, c) => {
               const isDark = (r + c) % 2 === 1;
               const selected = state.selected && state.selected.r === r && state.selected.c === c;
-              const target = state.legalTargets?.includes(`${r},${c}`);
+              const target = showHints && state.legalTargets?.includes(`${r},${c}`);
               const inCheckCls = state.inCheck && sq?.type === 'K' && sq.color === state.inCheck;
               return (
                 <button
@@ -220,4 +247,3 @@ export default function ChessBoard({ players, selectedModifiers, onExit }: { pla
     </div>
   );
 }
-
