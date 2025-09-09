@@ -166,17 +166,50 @@ export default function ChessBoard({ players, selectedModifiers, onExit, onMove,
     if (lastAppliedKey !== key) {
       const moving = at(state.board, ext.from);
       if (moving) {
-        const hadCapture = !!at(state.board, ext.to) || !!ext.isEnPassant;
+        const destBefore = at(state.board, ext.to);
+        const hadCapture = !!destBefore || !!ext.isEnPassant;
+        // compute en passant target for next turn
+        let nextEnPassant: any = null;
+        if (moving.type === 'P' && Math.abs(ext.to.r - ext.from.r) === 2) {
+          nextEnPassant = { r: (ext.to.r + ext.from.r) / 2, c: ext.from.c };
+        }
         const nextBoard = makeMove(state.board, ext, state.enPassantTarget ?? null);
         const nextTurn: Color = opposite(state.turn);
+        const inCheckNext = isCheck(nextBoard, nextTurn, nextEnPassant) ? nextTurn : null;
+        const checkmate = isCheckmate(nextBoard, nextTurn, nextEnPassant);
+
+        // 50-move rule and repetition
+        let halfmoveClock = state.halfmoveClock ?? 0;
+        if (moving.type === 'P' || hadCapture) halfmoveClock = 0; else halfmoveClock += 1;
+        const rep = { ...(state.repetition ?? {}) } as Record<string, number>;
+        const keyPos = positionKey(nextBoard, nextTurn, nextEnPassant);
+        rep[keyPos] = (rep[keyPos] ?? 0) + 1;
+
+        let winner: GameState['winner'] = null;
+        let drawReason: GameState['drawReason'] = null;
+        if (checkmate) {
+          winner = state.turn;
+        } else {
+          const anyMove = hasAnyLegalMove(nextBoard, nextTurn, nextEnPassant);
+          if (!anyMove && !inCheckNext) { winner = 'draw'; drawReason = 'stalemate'; }
+          else if (insufficientMaterial(nextBoard)) { winner = 'draw'; drawReason = 'insufficient_material'; }
+          else if (halfmoveClock >= 100) { winner = 'draw'; drawReason = 'fifty_move_rule'; }
+          else if (rep[keyPos] >= 3) { winner = 'draw'; drawReason = 'threefold_repetition'; }
+        }
+        const san = moveToSAN(state.board, ext, state.turn, state.enPassantTarget ?? null);
         const nextState: GameState = {
           ...state,
           board: nextBoard,
           turn: nextTurn,
           selected: null,
           legalTargets: [],
-          inCheck: isCheck(nextBoard, nextTurn, state.enPassantTarget ?? null) ? nextTurn : null,
-          history: [...state.history, ext],
+          inCheck: inCheckNext,
+          winner,
+          drawReason: winner === 'draw' ? drawReason : null,
+          history: [...state.history, { ...ext, san, color: state.turn, byName: state.turn === 'w' ? (state.players?.w ?? 'White') : (state.players?.b ?? 'Black') }],
+          enPassantTarget: nextEnPassant,
+          halfmoveClock,
+          repetition: rep,
         };
         if (moving.type === 'K' && Math.abs(ext.to.c - ext.from.c) === 2) playCastle();
         else if (hadCapture) playCapture();

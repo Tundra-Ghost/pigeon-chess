@@ -1,28 +1,35 @@
 import { useState } from 'react';
-import { MODIFIERS } from '../modifiers/data';
 // Auth opens as a modal from parent
 import './SetupScreen.css';
 import '../styles/medieval.css';
 import { useNavigate } from 'react-router-dom';
+import { useUi } from '../contexts/UiContext';
+import ModifierBrowser from './modifiers/ModifierBrowser';
+import './modifiers/modifiers.css';
 
 export interface SetupData {
   whiteName: string;
   blackName: string;
-  selectedModifiers: string[];
+  selectedModifiersWhite: string[];
+  selectedModifiersBlack: string[];
+  bannedModifiers: string[];
 }
 
 export default function SetupScreen({ onStart, onOpenSettings }: { onStart: (data: SetupData) => void; onOpenSettings?: () => void }) {
   const navigate = useNavigate();
+  const ui = useUi();
   const [whiteName, setWhiteName] = useState('White');
   const [blackName, setBlackName] = useState('Black');
-  const [selected, setSelected] = useState<string[]>([]);
+  const [phase, setPhase] = useState<'ban'|'select'>('ban');
+  const [activeSide, setActiveSide] = useState<'w'|'b'>('w');
+  const [selectedW, setSelectedW] = useState<string[]>([]);
+  const [selectedB, setSelectedB] = useState<string[]>([]);
+  const [banned, setBanned] = useState<string[]>([]);
+  const [bannedBy, setBannedBy] = useState<{ w?: string; b?: string }>({});
 
-  function toggle(id: string) {
-    setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
-  }
 
   function start() {
-    onStart({ whiteName, blackName, selectedModifiers: selected });
+    onStart({ whiteName, blackName, selectedModifiersWhite: selectedW, selectedModifiersBlack: selectedB, bannedModifiers: banned });
   }
 
   return (
@@ -31,8 +38,12 @@ export default function SetupScreen({ onStart, onOpenSettings }: { onStart: (dat
         <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', gap:8}}>
           <h2 className="text-2xl font-bold medieval-title">Pigeon Chess — Setup</h2>
           <div style={{display:'flex', gap:8}}>
-            <button className="btn-medieval" onClick={() => document.dispatchEvent(new CustomEvent('open-auth'))}>Account</button>
-            {onOpenSettings && <button className="btn-medieval" onClick={onOpenSettings}>Settings</button>}
+            <button className="btn-medieval" onClick={ui.openAuth}>Account</button>
+            {onOpenSettings ? (
+              <button className="btn-medieval" onClick={onOpenSettings}>Settings</button>
+            ) : (
+              <button className="btn-medieval" onClick={ui.openSettings}>Settings</button>
+            )}
             <button className="btn-medieval" onClick={() => navigate('/')}>Back</button>
           </div>
         </div>
@@ -47,26 +58,39 @@ export default function SetupScreen({ onStart, onOpenSettings }: { onStart: (dat
           </label>
         </div>
 
-        <h3 className="mt-4 text-lg font-semibold">Modifiers (scaffold)</h3>
-        <div className="mods">
-          {MODIFIERS.map((m) => (
-            <label key={m.id} className={`mod ${selected.includes(m.id) ? 'on' : ''}`}>
-              <input
-                type="checkbox"
-                checked={selected.includes(m.id)}
-                onChange={() => toggle(m.id)}
-              />
-              <span className="mod-title">{m.name}</span>
-              <span className="mod-desc">{m.description}</span>
-            </label>
-          ))}
+        <h3 className="mt-4 text-lg font-semibold medieval-title">Modifiers</h3>
+        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8}}>
+          <div><strong>Phase:</strong> {phase==='ban'?'Ban (each player one ban)':'Select'} · <strong>Active:</strong> {activeSide==='w'?'White':'Black'}</div>
+          <div style={{display:'flex', gap:8}}>
+            <button className="btn-medieval" onClick={()=>setActiveSide(s=> s==='w'?'b':'w')}>Switch Side</button>
+            {phase==='ban' && (bannedBy.w && bannedBy.b) && (
+              <button className="btn-medieval" onClick={()=> setPhase('select')}>Next Phase</button>
+            )}
+          </div>
         </div>
+        <div style={{marginBottom:8}}>
+          <strong>Banned:</strong> {banned.length? banned.join(', '): 'None'}
+        </div>
+        <ModifierBrowser
+          selectedIds={activeSide==='w'? selectedW : selectedB}
+          onChange={(ids)=> activeSide==='w'? setSelectedW(ids) : setSelectedB(ids)}
+          bannedIds={banned}
+          phase={phase}
+          canBan={phase==='ban' && ((activeSide==='w' && !bannedBy.w) || (activeSide==='b' && !bannedBy.b))}
+          onBan={(id)=>{
+            if (phase!=='ban') return;
+            if (banned.includes(id)) return;
+            setBanned(prev=> [...prev, id]);
+            setBannedBy(prev=> ({ ...prev, [activeSide]: id }));
+            setActiveSide(s=> s==='w'?'b':'w');
+          }}
+        />
 
         <div style={{display:'grid', gap:8}}>
           <button className="start btn-medieval" onClick={start}>
             Play
           </button>
-          <small style={{opacity:.8}}>Tip: Click a piece to see legal moves (dots). Click again to deselect. You can adjust sounds and hints in Settings.</small>
+          <small style={{opacity:.8}}>Tip: Ban phase (one each), then selection phase. Use Switch Side to pick for both players offline. Save quick picks will arrive soon.</small>
         </div>
         
       </div>

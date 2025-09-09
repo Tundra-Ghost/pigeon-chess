@@ -1,35 +1,33 @@
 import './App.css';
-import ChessBoard from './components/ChessBoard';
+import LocalAIMatch from './offline/LocalAIMatch';
 import SetupScreen from './components/SetupScreen';
 import SettingsModal, { getSettings } from './components/SettingsModal';
 import OnlineMatch from './multiplayer/OnlineMatch';
 import OnlineLobby from './multiplayer/OnlineLobby';
 import AuthModal from './components/AuthModal';
 import ProfilePage from './components/ProfilePage';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Routes, Route, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { playMenuBgm, playGameBgm, setSoundOptions } from './sound';
+import { SettingsProvider } from './contexts/SettingsContext';
+import { UiProvider } from './contexts/UiContext';
 import MenuScreen from './components/MenuScreen';
 import MatchHistory from './history/MatchHistory';
 import MatchDetail from './history/MatchDetail';
 import Toaster from './ui/Toaster';
-import { SettingsProvider } from './contexts/SettingsContext';
-import { UiProvider } from './contexts/UiContext';
+ 
 
 function App() {
   const [view] = useState<'menu'|'setup'|'local'|'onlineLobby'|'onlineMatch'|'profile'>('menu');
   const [players, setPlayers] = useState<{ w: string; b: string }>({ w: 'White', b: 'Black' });
-  const [selectedModifiers, setSelectedModifiers] = useState<string[]>([]);
+  const [, setSelectedModifiers] = useState<string[]>([]);
   const [settings, setSettings] = useState(getSettings());
+  // Local modals now controlled by UiContext; keep fallbacks for legacy calls
   const [openSettings, setOpenSettings] = useState(false);
   const [openAuth, setOpenAuth] = useState(false);
 
   // Global event to open auth from SetupScreen
-  React.useEffect(() => {
-    const handler = () => setOpenAuth(true);
-    document.addEventListener('open-auth', handler as any);
-    return () => document.removeEventListener('open-auth', handler as any);
-  }, []);
+  // Legacy document event removed; UiContext should be used going forward
 
   useEffect(() => {
     if (view === 'local' || view === 'onlineMatch') playGameBgm();
@@ -68,9 +66,10 @@ function App() {
 
         <Route path="/setup" element={
           <>
-            <SetupScreen onStart={({ whiteName, blackName, selectedModifiers }) => {
+            <SetupScreen onStart={({ whiteName, blackName, selectedModifiersWhite, selectedModifiersBlack }) => {
               setPlayers({ w: whiteName || 'White', b: blackName || 'Black' });
-              setSelectedModifiers(selectedModifiers);
+              // For local play, merge both sets into one for now
+              setSelectedModifiers(Array.from(new Set([...(selectedModifiersWhite||[]), ...(selectedModifiersBlack||[])])));
               navigate('/play/local');
             }} onOpenSettings={() => setOpenSettings(true)} />
             <AuthModal open={openAuth} onClose={()=>setOpenAuth(false)} onGoProfile={()=>{ setOpenAuth(false); navigate('/profile'); }} />
@@ -81,8 +80,8 @@ function App() {
         <Route path="/play/local" element={
           <>
             <h1>Pigeon Chess</h1>
-            <p className="read-the-docs">Chess with basic rules + castling and en passant; pawns auto-promote to queens. Modifiers are scaffolded.</p>
-            <ChessBoard players={players} selectedModifiers={selectedModifiers} onExit={() => navigate('/')} showHints={settings.showHints} onOpenSettings={() => setOpenSettings(true)} />
+            <p className="read-the-docs">Local match vs simple AI. Castling/en passant supported; pawns auto‑promote to queens.</p>
+            <LocalAIMatch onExit={() => navigate('/')} players={players} />
             <SettingsModal open={openSettings} onClose={() => setOpenSettings(false)} onChange={setSettings} />
           </>
         } />
@@ -94,10 +93,10 @@ function App() {
         <Route path="/history" element={<MatchHistory />} />
         <Route path="/history/:code" element={<MatchDetail />} />
       </Routes>
-      <Toaster />
-    </div>
-    </UiProvider>
-    </SettingsProvider>
+        <Toaster />
+      </div>
+      </UiProvider>
+      </SettingsProvider>
   );
 }
 

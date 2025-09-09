@@ -3,6 +3,7 @@ import '../styles/medieval.css';
 import AboutModal from './AboutModal';
 import { useState } from 'react';
 import logoUrl from '../assets/pigeon-chess-logo.png';
+import placeholderIcon from '../assets/404-error.svg';
 
 export default function MenuScreen({ onPlayOffline, onPlayOnline, onSettings, onExit, onAccount }: { onPlayOffline: () => void; onPlayOnline: () => void; onSettings: () => void; onExit?: () => void; onAccount: () => void }) {
   const [openAbout, setOpenAbout] = useState(false);
@@ -16,12 +17,32 @@ export default function MenuScreen({ onPlayOffline, onPlayOnline, onSettings, on
             <div style={{opacity:.8, fontSize:18, marginTop:10}}>A gritty twist on a timeless game</div>
           </div>
           <div className="buttons">
-            <button className="btn btn-medieval" onClick={onPlayOffline}>PLAY OFFLINE</button>
-            <button className="btn btn-medieval" onClick={onPlayOnline}>PLAY ONLINE (BETA)</button>
-            <button className="btn btn-medieval" onClick={onSettings}>SETTINGS</button>
-            <button className="btn btn-medieval" onClick={()=>setOpenAbout(true)}>ABOUT</button>
-            <button className="btn btn-medieval" onClick={onAccount}>ACCOUNT</button>
-            {onExit ? <button className="btn btn-medieval" onClick={onExit}>EXIT</button> : null}
+            <button className="btn btn-medieval" onClick={onPlayOffline}>
+              <img className="btn-icon" src={placeholderIcon} alt="Icon" />
+              PLAY OFFLINE
+            </button>
+            <button className="btn btn-medieval" onClick={onPlayOnline}>
+              <img className="btn-icon" src={placeholderIcon} alt="Icon" />
+              PLAY ONLINE (BETA)
+            </button>
+            <button className="btn btn-medieval" onClick={onSettings}>
+              <img className="btn-icon" src={placeholderIcon} alt="Icon" />
+              SETTINGS
+            </button>
+            <button className="btn btn-medieval" onClick={()=>setOpenAbout(true)}>
+              <img className="btn-icon" src={placeholderIcon} alt="Icon" />
+              ABOUT
+            </button>
+            <button className="btn btn-medieval" onClick={onAccount}>
+              <img className="btn-icon" src={placeholderIcon} alt="Icon" />
+              ACCOUNT
+            </button>
+            {onExit ? (
+              <button className="btn btn-medieval" onClick={onExit}>
+                <img className="btn-icon" src={placeholderIcon} alt="Icon" />
+                EXIT
+              </button>
+            ) : null}
           </div>
           <div className="logo-sigil">
             <img src={logoUrl} alt="Pigeon Chess" />

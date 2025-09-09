@@ -87,6 +87,13 @@ export default function AuthPanel({ onAuthed, onGoProfile }: { onAuthed?: (user:
               <input value={email} onChange={e=>setEmail(e.target.value)} />
             </label>
           </div>
+          {mode==='register' && (
+            <div>
+              <label>Display name<br/>
+                <input value={displayName} onChange={e=>setDisplayName(e.target.value)} />
+              </label>
+            </div>
+          )}
           <div>
             <label>Password<br/>
               <div style={{display:'flex', gap:6}}>
@@ -95,13 +102,6 @@ export default function AuthPanel({ onAuthed, onGoProfile }: { onAuthed?: (user:
               </div>
             </label>
           </div>
-          {mode==='register' && (
-            <div>
-              <label>Display name<br/>
-                <input value={displayName} onChange={e=>setDisplayName(e.target.value)} />
-              </label>
-            </div>
-          )}
           {mode==='register' && (
             <div>
               <label>Confirm password<br/>

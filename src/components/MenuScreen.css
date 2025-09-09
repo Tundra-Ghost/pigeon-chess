@@ -38,6 +38,10 @@
 .btn-medieval:hover { filter: brightness(1.05); transform: translateY(-1px); }
 .btn-medieval:active { transform: translateY(2px); box-shadow: 0 6px 0 #3a2a1f; }
 
+/* Add icon layout just for main menu buttons */
+.buttons .btn-medieval { display: flex; align-items: center; gap: 10px; }
+.btn-icon { width: 22px; height: 22px; flex: 0 0 auto; filter: drop-shadow(0 1px 0 rgba(0,0,0,0.4)); }
+
 .logo-sigil { grid-column: 1; align-self: end; justify-self: center; width: min(24vw, 240px); margin-left: 0; transform: translateY(12px); filter: drop-shadow(0 18px 30px rgba(0,0,0,0.7)) sepia(0.2) contrast(1.05); }
 .logo-sigil img { width: 100%; height: auto; image-rendering: -webkit-optimize-contrast; }
 .btn:hover { filter: brightness(1.03); transform: translateY(-1px); }
