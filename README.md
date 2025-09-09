@@ -70,6 +70,7 @@ git clone https://github.com/tundra-ghost/pigeon-chess.git
 cd pigeon-chess
 npm install
 npm run dev
+```
 
 Visit http://localhost:5173/ to play.
 
