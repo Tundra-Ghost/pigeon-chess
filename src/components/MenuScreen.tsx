@@ -45,7 +45,11 @@ export default function MenuScreen({ onPlayOffline, onPlayOnline, onSettings, on
             ) : null}
           </div>
           <div className="logo-sigil">
-            <img src={logoUrl} alt="Pigeon Chess" />
+            <picture>
+              {/* If you add a real WebP (e.g., public/logo.webp), update srcSet below to that path for faster loads on Pages. */}
+              <source type="image/webp" srcSet={logoUrl} />
+              <img src={logoUrl} alt="Pigeon Chess" decoding="async" fetchPriority="low" width={240} height={240} />
+            </picture>
           </div>
           <AboutModal open={openAbout} onClose={()=>setOpenAbout(false)} />
           <div className="noise-overlay" />

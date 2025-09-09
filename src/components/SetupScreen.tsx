@@ -65,6 +65,13 @@ export default function SetupScreen({ onStart, onOpenSettings, vsAI = true, huma
       if (selectedB.length === 0) setSelectedB(aiChooseModifiers(available, banned));
     }
   }, [vsAI, phase, aiSide, banned, allIds, selectedW.length, selectedB.length]);
+
+  // If a modifier becomes banned, purge it from both players' selections
+  useEffect(() => {
+    if (!banned?.length) return;
+    setSelectedW(prev => prev.filter(id => !banned.includes(id)));
+    setSelectedB(prev => prev.filter(id => !banned.includes(id)));
+  }, [banned]);
   function start() {
     onStart({ whiteName, blackName, selectedModifiersWhite: selectedW, selectedModifiersBlack: selectedB, bannedModifiers: banned });
   }

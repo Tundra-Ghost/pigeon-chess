@@ -29,6 +29,7 @@ export default function ModifierBrowser({ selectedIds, onChange, bannedIds = [],
   }
 
   function canSelect(m: Modifier): { ok: boolean; reason?: string }{
+    if (bannedIds.includes(m.id)) return { ok: false, reason: 'Banned' };
     if (selectedIds.includes(m.id)) return { ok: true };
     if (selectedIds.length >= MOD_RULES.maxSelected) return { ok: false, reason: 'Max selected' };
     if (costUsed + m.cost > MOD_RULES.pointBudget) return { ok: false, reason: 'Budget exceeded' };
