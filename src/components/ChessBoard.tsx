@@ -4,20 +4,21 @@ import { initialBoard } from '../chess/initial';
 import { at, isCheck, isCheckmate, legalMoves, makeMove, needsPromotion, opposite, hasAnyLegalMove, insufficientMaterial, positionKey } from '../chess/logic';
 import './ChessBoard.css';
 
-const PIECE_UNICODE: Record<string, string> = {
-  'wK': '♔',
-  'wQ': '♕',
-  'wR': '♖',
-  'wB': '♗',
-  'wN': '♘',
-  'wP': '♙',
-  'bK': '♚',
-  'bQ': '♛',
-  'bR': '♜',
-  'bB': '♝',
-  'bN': '♞',
-  'bP': '♟',
-};
+// Piece images (Cburnett set; see CREDITS.md)
+import wK from '../assets/pieces/cburnett/Chess_klt45.svg';
+import wQ from '../assets/pieces/cburnett/Chess_qlt45.svg';
+import wR from '../assets/pieces/cburnett/Chess_rlt45.svg';
+import wB from '../assets/pieces/cburnett/Chess_blt45.svg';
+import wN from '../assets/pieces/cburnett/Chess_nlt45.svg';
+import wP from '../assets/pieces/cburnett/Chess_plt45.svg';
+import bK from '../assets/pieces/cburnett/Chess_kdt45.svg';
+import bQ from '../assets/pieces/cburnett/Chess_qdt45.svg';
+import bR from '../assets/pieces/cburnett/Chess_rdt45.svg';
+import bB from '../assets/pieces/cburnett/Chess_bdt45.svg';
+import bN from '../assets/pieces/cburnett/Chess_ndt45.svg';
+import bP from '../assets/pieces/cburnett/Chess_pdt45.svg';
+
+const PIECE_IMG: Record<string, string> = { wK, wQ, wR, wB, wN, wP, bK, bQ, bR, bB, bN, bP } as any;
 
 function cellKey(r: number, c: number) {
   return `${r}-${c}`;
@@ -36,6 +37,7 @@ export default function ChessBoard({ players, selectedModifiers, onExit }: { pla
     legalTargets: [],
     inCheck: null,
     winner: null,
+    drawReason: null,
     history: [],
     enPassantTarget: null,
     players,
@@ -46,13 +48,26 @@ export default function ChessBoard({ players, selectedModifiers, onExit }: { pla
 
   const statusText = useMemo(() => {
     if (state.winner) {
-      return state.winner === 'draw' ? 'Draw' : `${state.winner === 'w' ? 'White' : 'Black'} wins!`;
+      if (state.winner === 'draw') {
+        const reason = state.drawReason === 'stalemate'
+          ? 'Stalemate'
+          : state.drawReason === 'insufficient_material'
+          ? 'Insufficient material'
+          : state.drawReason === 'fifty_move_rule'
+          ? '50-move rule'
+          : state.drawReason === 'threefold_repetition'
+          ? 'Threefold repetition'
+          : 'Draw';
+        return `Draw — ${reason}`;
+      }
+      const name = state.winner === 'w' ? state.players?.w ?? 'White' : state.players?.b ?? 'Black';
+      return `${name} wins!`;
     }
     const check = isCheck(state.board, state.turn, state.enPassantTarget);
     const name = state.turn === 'w' ? state.players?.w ?? 'White' : state.players?.b ?? 'Black';
     if (check) return `${name} to move — Check!`;
     return `${name} to move`;
-  }, [state.board, state.turn, state.winner, state.enPassantTarget, state.players]);
+  }, [state.board, state.turn, state.winner, state.enPassantTarget, state.players, state.drawReason]);
 
   function onSquareClick(r: number, c: number) {
     if (state.winner) return;
@@ -73,27 +88,30 @@ export default function ChessBoard({ players, selectedModifiers, onExit }: { pla
         nextEnPassant = { r: (to.r + from.r) / 2, c: from.c };
       }
 
+      const destBefore = at(state.board, to);
       const nextBoard = makeMove(state.board, move, state.enPassantTarget ?? null);
       const nextTurn: Color = opposite(state.turn);
-      const checkmate = isCheckmate(nextBoard, nextTurn, nextEnPassant);
       const inCheckNext = isCheck(nextBoard, nextTurn, nextEnPassant) ? nextTurn : null;
+      const checkmate = isCheckmate(nextBoard, nextTurn, nextEnPassant);
+
       // 50-move rule and repetition
-      const destBefore = at(state.board, to);
       const didCapture = !!destBefore || move.isEnPassant === true;
       let halfmoveClock = state.halfmoveClock ?? 0;
       if (moving.type === 'P' || didCapture) halfmoveClock = 0; else halfmoveClock += 1;
       const rep = { ...(state.repetition ?? {}) } as Record<string, number>;
       const key = positionKey(nextBoard, nextTurn, nextEnPassant);
       rep[key] = (rep[key] ?? 0) + 1;
+
       let winner: GameState['winner'] = null;
+      let drawReason: GameState['drawReason'] = null;
       if (checkmate) {
         winner = state.turn;
       } else {
         const anyMove = hasAnyLegalMove(nextBoard, nextTurn, nextEnPassant);
-        if (!anyMove && !inCheckNext) winner = 'draw'; // stalemate
-        else if (insufficientMaterial(nextBoard)) winner = 'draw';
-        else if (halfmoveClock >= 100) winner = 'draw';
-        else if (rep[key] >= 3) winner = 'draw';
+        if (!anyMove && !inCheckNext) { winner = 'draw'; drawReason = 'stalemate'; }
+        else if (insufficientMaterial(nextBoard)) { winner = 'draw'; drawReason = 'insufficient_material'; }
+        else if (halfmoveClock >= 100) { winner = 'draw'; drawReason = 'fifty_move_rule'; }
+        else if (rep[key] >= 3) { winner = 'draw'; drawReason = 'threefold_repetition'; }
       }
       const nextState: GameState = {
         ...state,
@@ -103,6 +121,7 @@ export default function ChessBoard({ players, selectedModifiers, onExit }: { pla
         legalTargets: [],
         inCheck: inCheckNext,
         winner,
+        drawReason: winner === 'draw' ? drawReason : null,
         history: [...state.history, move],
         enPassantTarget: nextEnPassant,
         halfmoveClock,
@@ -139,6 +158,7 @@ export default function ChessBoard({ players, selectedModifiers, onExit }: { pla
       legalTargets: [],
       inCheck: null,
       winner: null,
+      drawReason: null,
       history: [],
       enPassantTarget: null,
       players,
@@ -149,9 +169,9 @@ export default function ChessBoard({ players, selectedModifiers, onExit }: { pla
   }
 
   return (
-    <div className="chess-wrapper">
+    <div className="chess-wrapper container mx-auto">
       <div className="chess-sidebar">
-        <h2>Pigeon Chess (Basic)</h2>
+        <h2 className="text-xl font-bold">Pigeon Chess (Basic)</h2>
         <div className="status">{statusText}</div>
         <button className="reset" onClick={reset}>New Game</button>
         {onExit ? <button className="reset" onClick={onExit}>Back to Setup</button> : null}
@@ -164,7 +184,7 @@ export default function ChessBoard({ players, selectedModifiers, onExit }: { pla
           <h3>Moves</h3>
           <ol>
             {state.history.map((m, i) => (
-              <li key={i}>{algebraic(m.from)} → {algebraic(m.to)}{m.promotion ? `=${m.promotion}` : ''}</li>
+              <li key={i}>{algebraic(m.from)} {'\u2192'} {algebraic(m.to)}{m.promotion ? `=${m.promotion}` : ''}</li>
             ))}
           </ol>
         </div>
@@ -187,7 +207,7 @@ export default function ChessBoard({ players, selectedModifiers, onExit }: { pla
                   aria-label={`Square ${r},${c}`}
                 >
                   {sq ? (
-                    <span className={`piece ${sq.color}`}>{PIECE_UNICODE[`${sq.color}${sq.type}`]}</span>
+                    <img className={`piece ${sq.color}`} src={PIECE_IMG[`${sq.color}${sq.type}`]} alt={`${sq.color}${sq.type}`} />
                   ) : (
                     <span className="dot-holder">{target ? <span className="move-dot"/> : null}</span>
                   )}
@@ -200,3 +220,4 @@ export default function ChessBoard({ players, selectedModifiers, onExit }: { pla
     </div>
   );
 }
+

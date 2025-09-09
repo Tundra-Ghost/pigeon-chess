@@ -34,6 +34,7 @@ export interface GameState {
   legalTargets?: string[]; // list of "r,c" strings
   inCheck?: Color | null;
   winner?: Color | 'draw' | null;
+  drawReason?: 'stalemate' | 'insufficient_material' | 'fifty_move_rule' | 'threefold_repetition' | null;
   history: Move[];
   enPassantTarget?: Coord | null; // square that can be captured en passant this move
   players?: { w: string; b: string };

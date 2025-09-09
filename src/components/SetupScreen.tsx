@@ -24,19 +24,19 @@ export default function SetupScreen({ onStart }: { onStart: (data: SetupData) =>
   return (
     <div className="setup-wrap">
       <div className="setup-card">
-        <h2>Pigeon Chess — Setup</h2>
+        <h2 className="text-2xl font-bold">Pigeon Chess — Setup</h2>
         <div className="row">
           <label>
-            White Name
-            <input value={whiteName} onChange={(e) => setWhiteName(e.target.value)} placeholder="White player" />
+            <span className="font-semibold">White Name</span>
+            <input className="mt-1" value={whiteName} onChange={(e) => setWhiteName(e.target.value)} placeholder="White player" />
           </label>
           <label>
-            Black Name
-            <input value={blackName} onChange={(e) => setBlackName(e.target.value)} placeholder="Black player" />
+            <span className="font-semibold">Black Name</span>
+            <input className="mt-1" value={blackName} onChange={(e) => setBlackName(e.target.value)} placeholder="Black player" />
           </label>
         </div>
 
-        <h3>Modifiers (scaffold)</h3>
+        <h3 className="mt-4 text-lg font-semibold">Modifiers (scaffold)</h3>
         <div className="mods">
           {MODIFIERS.map((m) => (
             <label key={m.id} className={`mod ${selected.includes(m.id) ? 'on' : ''}`}>
@@ -56,4 +56,3 @@ export default function SetupScreen({ onStart }: { onStart: (data: SetupData) =>
     </div>
   );
 }
-
