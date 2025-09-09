@@ -1,34 +1,31 @@
-import { useState } from "react";
-import reactLogo from "./assets/react.svg";
-import viteLogo from "/vite.svg";
-import "./App.css";
+import './App.css';
+import ChessBoard from './components/ChessBoard';
+import SetupScreen from './components/SetupScreen';
+import { useState } from 'react';
 
 function App() {
-  const [count, setCount] = useState(0);
+  const [started, setStarted] = useState(false);
+  const [players, setPlayers] = useState<{ w: string; b: string }>({ w: 'White', b: 'Black' });
+  const [selectedModifiers, setSelectedModifiers] = useState<string[]>([]);
+
+  if (!started) {
+    return (
+      <SetupScreen
+        onStart={({ whiteName, blackName, selectedModifiers }) => {
+          setPlayers({ w: whiteName || 'White', b: blackName || 'Black' });
+          setSelectedModifiers(selectedModifiers);
+          setStarted(true);
+        }}
+      />
+    );
+  }
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank" rel="noopener">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank" rel="noopener">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
+    <div>
+      <h1>Pigeon Chess</h1>
+      <p className="read-the-docs">Chess with basic rules + castling and en passant; pawns auto-promote to queens. Modifiers are scaffolded.</p>
+      <ChessBoard players={players} selectedModifiers={selectedModifiers} onExit={() => setStarted(false)} />
+    </div>
   );
 }
 
