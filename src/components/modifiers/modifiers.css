@@ -11,6 +11,12 @@
 .mod-list { max-height: 50vh; overflow:auto; display:grid; gap: 8px; padding-right: 4px; }
 .mod-card { display:grid; grid-template-columns:auto 1fr auto; gap: 10px; align-items:center; padding: 10px; border-radius: 10px; border: 2px solid #3a2a1f; background:#0f0f0f; }
 .mod-icon { width: 28px; height: 28px; display: inline-block; margin-right: 6px; filter: drop-shadow(0 1px 0 rgba(0,0,0,0.4)); }
+/* Icon-as-toggle styling */
+.icon-toggle { width: 36px; height: 36px; display:flex; align-items:center; justify-content:center; border-radius:8px; border: 2px solid #3a2a1f; background: transparent; cursor: pointer; }
+.icon-toggle:disabled { opacity: 0.5; cursor: not-allowed; }
+.icon-toggle .mod-icon { margin: 0; /* center inside the square */ filter: invert(1) brightness(1.1) contrast(0.95); }
+.icon-toggle.selected { border-color: #d6b24a; box-shadow: 0 0 8px rgba(255, 213, 79, 0.35); }
+.icon-toggle.selected .mod-icon { filter: invert(82%) sepia(68%) saturate(623%) hue-rotate(2deg) brightness(105%) contrast(102%); }
 .mod-card .name { font-weight:800; color:#f1e0b7; }
 .mod-card .desc { opacity:0.85; font-size: 12px; color:#e9d7b6; }
 .mod-card .meta { font-size: 12px; opacity:0.8; }
@@ -18,5 +24,7 @@
 .mod-selected h4 { margin: 0 0 8px 0; }
 .rulebar { display:flex; justify-content: space-between; gap: 10px; padding: 8px 10px; border-radius: 10px; background:#1c1a15; border: 1px solid #4a3b2c; color:#f1e0b7; }
 .rulebar strong { color:#e8d7b5; }
+.mod-summary { margin-top: 10px; padding: 8px 10px; border-radius: 10px; background:#1c1a15; border: 1px solid #4a3b2c; color:#f1e0b7; font-size: 12px; }
+.mod-summary .row { margin: 3px 0; }
 .btn-mini { padding:6px 10px; border-radius:8px; border: 2px solid #3a2a1f; background: linear-gradient(#c09a6a,#9b7448); color:#1d130d; font-weight:800; cursor:pointer; }
 .btn-mini:disabled { opacity:0.5; cursor:not-allowed; }

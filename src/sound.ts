@@ -1,7 +1,7 @@
 import moveSelf from './assets/sound_effects/move-self.mp3';
 import capture from './assets/sound_effects/capture.mp3';
 import castle from './assets/sound_effects/castle.mp3';
-import bgMenu from './assets/sound_effects/pigeon-chess-main-menu.mp3';
+import bgMenu from './assets/sound_effects/Treasure Trove Tango.mp3';
 import bgGame from './assets/sound_effects/pigeon-chess-inGame.mp3';
 
 const sounds: Record<string, HTMLAudioElement> = {
@@ -27,6 +27,9 @@ function applyVolumes() {
 export function setSoundOptions(o: Partial<typeof opts>) {
   opts = { ...opts, ...o };
   applyVolumes();
+  try {
+    if (bgm && opts.bgmEnabled && bgm.paused) bgm.play();
+  } catch {}
 }
 
 export function playMove() { try { applyVolumes(); sounds.move.currentTime = 0; if (opts.sfxEnabled) sounds.move.play(); } catch {} }
@@ -54,3 +57,15 @@ export function playGameBgm() {
 }
 
 export function stopBgm() { try { if (bgm) { bgm.pause(); bgm = null; } } catch {} }
+
+// Attempt to satisfy browser autoplay policies by starting playback from a user gesture
+export function unlockBgm(scene: 'menu'|'game' = 'menu') {
+  try {
+    if (!bgm) {
+      bgm = new Audio(scene === 'menu' ? bgMenu : bgGame);
+      bgm.loop = true;
+    }
+    applyVolumes();
+    if (opts.bgmEnabled) bgm.play();
+  } catch {}
+}

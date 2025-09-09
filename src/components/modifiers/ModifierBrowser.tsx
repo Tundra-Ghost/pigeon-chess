@@ -11,9 +11,12 @@ type Props = {
   phase?: 'ban' | 'select';
   onBan?: (id: string) => void;
   canBan?: boolean;
+  summaryWhite?: string[];
+  summaryBlack?: string[];
+  summaryBanned?: { w?: string; b?: string };
 };
 
-export default function ModifierBrowser({ selectedIds, onChange, bannedIds = [], phase = 'select', onBan, canBan = false }: Props){
+export default function ModifierBrowser({ selectedIds, onChange, bannedIds = [], phase = 'select', onBan, canBan = false, summaryWhite, summaryBlack, summaryBanned }: Props){
   const [query, setQuery] = useState('');
   const [activeTags, setActiveTags] = useState<string[]>([]);
   const [category, setCategory] = useState<'All' | Modifier['category']>('All');
@@ -85,19 +88,23 @@ export default function ModifierBrowser({ selectedIds, onChange, bannedIds = [],
             const isBanned = bannedIds.includes(m.id);
             return (
               <div key={m.id} className="mod-card">
-                {phase === 'select' ? (
-                  <input aria-label="select modifier" type="checkbox" checked={active} onChange={()=>toggle(m)} />
-                ) : (
-                  <input aria-label="ban modifier" type="checkbox" disabled checked={false} />
-                )}
-                <div>
+                <button
+                  className={`icon-toggle ${active ? 'selected' : ''}`}
+                  aria-label={phase==='select' ? (active ? 'Deselect modifier' : 'Select modifier') : 'Modifier'}
+                  aria-pressed={phase==='select' ? active : undefined}
+                  disabled={(phase !== 'select') || (!active && !chk.ok)}
+                  onClick={() => phase === 'select' && toggle(m)}
+                >
                   <img className="mod-icon" src={(m as any).icon || placeholderIcon} alt="modifier icon" />
+                </button>
+                <div>
+                  
                   <div className="name">{m.name} <span className="meta">[{m.category}] · cost {m.cost}</span></div>
                   <div className="desc">{m.short}</div>
                 </div>
                 <div>
                   {phase === 'select' ? (
-                    <button className="btn-mini" disabled={!active && !chk.ok} onClick={()=>toggle(m)}>{active?'Remove':'Add'}</button>
+                    <span className="meta" aria-hidden>{active ? 'Selected' : ''}</span>
                   ) : (
                     <button className="btn-mini" disabled={isBanned || !canBan || !onBan} onClick={()=> onBan && onBan(m.id)}>Ban</button>
                   )}
@@ -124,6 +131,20 @@ export default function ModifierBrowser({ selectedIds, onChange, bannedIds = [],
         </ul>
         {selected.length>0 && (
           <button className="btn-mini" onClick={()=>onChange([])}>Clear All</button>
+        )}
+        {(summaryWhite || summaryBlack || summaryBanned) && (
+          <div className="mod-summary">
+            {summaryWhite && (
+              <div className="row"><strong>White selected:</strong> {summaryWhite.length ? summaryWhite.join(', ') : '(none)'}</div>
+            )}
+            {summaryBlack && (
+              <div className="row"><strong>Black selected:</strong> {summaryBlack.length ? summaryBlack.join(', ') : '(none)'}</div>
+            )}
+            {summaryBanned && (
+              <div className="row"><strong>White banned:</strong> {summaryBanned.w || '(none)'}; <strong>Black banned:</strong> {summaryBanned.b || '(none)'}
+              </div>
+            )}
+          </div>
         )}
       </div>
     </div>
