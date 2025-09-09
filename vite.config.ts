@@ -1,11 +1,8 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
-// https://vite.dev/config/
 export default defineConfig({
-  base: "/pigeon-chess/",
-  build: {
-    outDir: "docs",
-  },
+  base: "/pigeon-chess/", // repo name, with leading & trailing slash
+  build: { outDir: "docs" }, // build into /docs for Pages
   plugins: [react()],
 });
